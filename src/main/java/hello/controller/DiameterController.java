@@ -29,30 +29,13 @@ public class DiameterController {
 
         logger.info(eventAuthorizationRequest.getMsisdn());
 
-//        try {
-//            ExampleChargingClient eac = new ExampleChargingClient(clientConfig);
-//            eac.setUp();
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//        }
-
-
         MPayOcsClient instance = MPayOcsClient.getInstance(clientConfig);
 
-       // EventAuthorizationRequest eventAuthRequest = new EventAuthorizationRequest();
-//      eventAuthRequest.setMsisdn("447700700700");
-//      eventAuthRequest.setTransactionId(UUID.randomUUID().toString());
-//      toTest.sendCcrEvent(eventAuthRequest);
-
-//        eventAuthRequest = new EventAuthorizationRequest();
-//        eventAuthRequest.setMsisdn("447700700777");
-//        eventAuthRequest.setTransactionId(UUID.randomUUID().toString());
         EventAuthorizationResponse eventAuthorizationResponse = instance.sendEventAuthAndBlock(eventAuthorizationRequest);
-        logger.debug("AFTER sendEventAuthAndBlock EXECUTED");
 
-        //EventAuthorizationResponse eventAuthorizationResponse = instance.sendEventAuthAndBlock(eventAuthorizationRequest);
-        //EventAuthorizationResponse eventAuthorizationResponse = new EventAuthorizationResponse();
-
+        logger.info("Returning msisdn : " + eventAuthorizationResponse.getMsisdn() + ", result code: " +  eventAuthorizationResponse.getReturnCode() +
+            ", txin : " + eventAuthorizationResponse.getTxnId() + " as a result of Request msisdn : " + eventAuthorizationRequest.getMsisdn()
+            + ", txin" + eventAuthorizationRequest.getTransactionId());
 
         return new ResponseEntity<EventAuthorizationResponse>(eventAuthorizationResponse, HttpStatus.OK);
     }

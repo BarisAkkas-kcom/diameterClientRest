@@ -14,7 +14,11 @@ import org.jdiameter.api.ro.ClientRoSession;
 import org.jdiameter.api.ro.events.RoCreditControlAnswer;
 import org.jdiameter.api.ro.events.RoCreditControlRequest;
 
+import java.util.concurrent.CountDownLatch;
+
 public abstract class DiameterRoClient extends AbstractClient {
+
+  //protected CountDownLatch countDownLatch = new CountDownLatch(1);
 
   public final void sendInitial() {
     try {

@@ -1,8 +1,22 @@
 package hello.DTO;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import java.util.Date;
+import java.util.concurrent.CountDownLatch;
 
 public class EventAuthorizationRequest {
+
+  @JsonIgnore
+  private final CountDownLatch countDownLatch = new CountDownLatch(1);
+
+  public CountDownLatch getCountDownLatch() {
+    return countDownLatch;
+  }
+
+//  public void setCountDownLatch(CountDownLatch countDownLatch) {
+//    this.countDownLatch = countDownLatch;
+//  }
 
   private String transactionId = null;
 

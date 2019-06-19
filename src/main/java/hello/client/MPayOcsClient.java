@@ -10,6 +10,8 @@ import org.jdiameter.api.Stack;
 import org.jdiameter.api.ro.ClientRoSession;
 import org.jdiameter.api.ro.events.RoCreditControlAnswer;
 import org.jdiameter.api.ro.events.RoCreditControlRequest;
+import org.springframework.beans.factory.config.ConfigurableBeanFactory;
+import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
@@ -19,11 +21,13 @@ import java.util.*;
 import java.util.concurrent.*;
 
 @Component
+//@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 public class MPayOcsClient extends DiameterRoClient implements Future <EventAuthorizationResponse> {
 
   private volatile EventAuthorizationResponse result = null;
   private volatile boolean cancelled = false;
-  private final CountDownLatch countDownLatch = new CountDownLatch(1);;
+  //private CountDownLatch countDownLatch;
+  //final Phaser phaser = new Phaser(1);
 
   final String clientConfig = "client-jdiameter-config.xml";
   private static final String dictionaryFile = "dictionary.xml";
@@ -109,7 +113,7 @@ public class MPayOcsClient extends DiameterRoClient implements Future <EventAuth
       ccRequestNumber++;
       Utils.printMessage(log, stack.getDictionary(), eventRequest.getMessage(), true);
       inFlightTxns.put(clientRoSession.getSessionId(), eventAuthRequest);
-      log.debug("No of inflight requests after adding " + clientRoSession.getSessionId() + "=" + inFlightTxns.size());
+      log.debug("No of inflight requests after adding txin = " + eventAuthRequest.getTransactionId() + " session id = " + clientRoSession.getSessionId() + "=" + inFlightTxns.size());
       clientRoSession.sendCreditControlRequest(eventRequest);
     }
     catch (Exception e) {
@@ -117,7 +121,7 @@ public class MPayOcsClient extends DiameterRoClient implements Future <EventAuth
     }
   }
 
-  public Future<EventAuthorizationResponse> sendEventAuth(EventAuthorizationRequest eventAuthRequest ) {
+  private Future<EventAuthorizationResponse> sendEventAuth(EventAuthorizationRequest eventAuthRequest ) {
     try {
       log.debug("Received: " + eventAuthRequest);
       ClientRoSession clientRoSession = getSession();
@@ -126,7 +130,7 @@ public class MPayOcsClient extends DiameterRoClient implements Future <EventAuth
       ccRequestNumber++;
       Utils.printMessage(log, stack.getDictionary(), eventRequest.getMessage(), true);
       inFlightTxns.put(clientRoSession.getSessionId(), eventAuthRequest);
-      log.debug("No of inflight requests after adding " + clientRoSession.getSessionId() + "=" + inFlightTxns.size());
+      log.debug("No of inflight requests after adding txin = " + eventAuthRequest.getTransactionId() + " session id = " + clientRoSession.getSessionId() + "=" + inFlightTxns.size());
       clientRoSession.sendCreditControlRequest(eventRequest);
       return this;
     }
@@ -137,14 +141,22 @@ public class MPayOcsClient extends DiameterRoClient implements Future <EventAuth
 
   public final EventAuthorizationResponse sendEventAuthAndBlock(EventAuthorizationRequest eventAuthRequest) {
     try {
-      return sendEventAuth(eventAuthRequest).get();
+      //phaser.register();
+      //countDownLatch = new CountDownLatch(1);
+      //countDownLatch = eventAuthRequest.getCountDownLatch();
+      Future<EventAuthorizationResponse> er = sendEventAuth(eventAuthRequest);
+      eventAuthRequest.getCountDownLatch().await();
+      //return sendEventAuth(eventAuthRequest).get(200,TimeUnit.MILLISECONDS);
+      return er.get();
     } catch (InterruptedException e) {
       e.printStackTrace();
-      countDownLatch.countDown();
+      eventAuthRequest.getCountDownLatch().countDown();
+      //phaser.arriveAndDeregister();
       return null;
-    } catch (ExecutionException e) {
+    } catch (ExecutionException e ) {
       e.printStackTrace();
-      countDownLatch.countDown();
+      eventAuthRequest.getCountDownLatch().countDown();
+      //phaser.arriveAndDeregister();
       return null;
     }
   }
@@ -223,7 +235,7 @@ public class MPayOcsClient extends DiameterRoClient implements Future <EventAuth
 
   private EventAuthorizationResponse getEventAuthorizationResponse(EventAuthorizationRequest eventAuthRequest, RoCreditControlAnswer answer) {
     EventAuthorizationResponse eventAuthResponse = new EventAuthorizationResponse();
-    eventAuthResponse.setMsisdn(eventAuthRequest.getDestAddress());
+    eventAuthResponse.setMsisdn(eventAuthRequest.getMsisdn());
     try {
       final long resultCode = answer.getResultCodeAvp().getUnsigned32();
       eventAuthResponse.setReturnCode(String.valueOf(resultCode));
@@ -256,29 +268,42 @@ public class MPayOcsClient extends DiameterRoClient implements Future <EventAuth
    */
   @Override
   public void doCreditControlAnswer(ClientRoSession session, RoCreditControlRequest request, RoCreditControlAnswer answer)
-      throws InternalException, IllegalDiameterStateException, RouteException, OverloadException {
+          throws InternalException, IllegalDiameterStateException, RouteException, OverloadException {
 
-    final String sessionId = answer.getMessage().getSessionId();
     log.debug("inside MPAYOCSClient doCreditControlAnswer ");
-    try {
-      Utils.printMessage(log, super.stack.getDictionary(), answer.getMessage(), false);
 
-      EventAuthorizationRequest eventAuthRequest = inFlightTxns.get(sessionId);
-      if (eventAuthRequest != null) {
-        // Build an EventAuth Response
-        EventAuthorizationResponse eventAuthResponse = getEventAuthorizationResponse(eventAuthRequest, answer);
-        log.debug("About to send: " + eventAuthResponse);
-        this.result = eventAuthResponse;
+    Utils.printMessage(log, super.stack.getDictionary(), answer.getMessage(), false);
+    String sessionId = "";
+
+    synchronized (this) {
+      try {
+        sessionId = answer.getMessage().getSessionId();
+        EventAuthorizationRequest eventAuthRequest = inFlightTxns.get(sessionId);
+        if (eventAuthRequest != null) {
+          // Build an EventAuth Response
+          EventAuthorizationResponse eventAuthResponse = getEventAuthorizationResponse(eventAuthRequest, answer);
+          log.debug("About to send: " + eventAuthResponse);
+          this.result = eventAuthResponse;
+          //countDownLatch = eventAuthRequest.getCountDownLatch();
+          eventAuthRequest.getCountDownLatch().countDown();
+          Thread.sleep(50);
+        }
+
       }
-    }
-    finally {
-      // Remove the in-flight txn
-      countDownLatch.countDown();
-      inFlightTxns.remove(session.getSessionId());
-      log.debug("No of inflight requests after removing " + sessionId + "=" + inFlightTxns.size());
-      // Close the session
-      ClientRoSession clientRoSession = fetchSession(sessionId);
-      clientRoSession.release();
+       /*catch (InterruptedException e) {
+        e.printStackTrace();
+      }*/ catch (InterruptedException e) {
+        e.printStackTrace();
+      } finally {
+        // Remove the in-flight txn
+
+        //phaser.arriveAndDeregister();
+        inFlightTxns.remove(session.getSessionId());
+        log.debug("No of inflight requests after removing " + sessionId + "=" + inFlightTxns.size());
+        // Close the session
+        ClientRoSession clientRoSession = fetchSession(sessionId);
+        clientRoSession.release();
+      }
     }
   }
 
@@ -334,7 +359,8 @@ public class MPayOcsClient extends DiameterRoClient implements Future <EventAuth
     if (isDone()) {
       return false;
     } else {
-      countDownLatch.countDown();
+     // countDownLatch.countDown();
+      //phaser.arriveAndDeregister();
       cancelled = true;
       return !isDone();
     }
@@ -347,18 +373,23 @@ public class MPayOcsClient extends DiameterRoClient implements Future <EventAuth
 
   @Override
   public boolean isDone() {
-    return countDownLatch.getCount() == 0;
+    //return countDownLatch.getCount() == 0;
+    //return phaser.isTerminated();
+    return false;
   }
 
   @Override
   public EventAuthorizationResponse get() throws InterruptedException, ExecutionException {
-    countDownLatch.await();
+    //Thread.sleep(200);
+    //countDownLatch.await();
+   // phaser.arriveAndAwaitAdvance();
     return result;
   }
 
   @Override
   public EventAuthorizationResponse get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
-    countDownLatch.await(timeout, unit);
+    //countDownLatch.await(timeout, unit);
+    //phaser.arriveAndAwaitAdvance();
     return result;
   }
 }
