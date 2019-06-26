@@ -1,9 +1,9 @@
 package com.kcom.diameter.client.impl;
 
+import com.kcom.diameter.client.IDiameterRoClient;
 import com.kcom.diameter.dictionary.AvpDictionary;
 import com.kcom.diameter.dto.RoCCAnswer;
 import com.kcom.diameter.dto.RoCCRequest;
-import com.kcom.diameter.client.IDiameterRoClient;
 import com.kcom.diameter.exception.DiameterClientException;
 import org.apache.log4j.Logger;
 import org.jdiameter.api.EventListener;
@@ -26,6 +26,7 @@ import org.jdiameter.client.impl.app.ro.ClientRoSessionDataLocalImpl;
 import org.jdiameter.client.impl.helpers.XMLConfiguration;
 import org.jdiameter.common.api.app.ro.IClientRoSessionContext;
 import org.jdiameter.common.impl.app.ro.RoSessionFactoryImpl;
+import org.jdiameter.server.impl.helpers.Parameters;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -36,7 +37,9 @@ public class DiameterRoClientFactory implements IDiameterRoClient, ClientRoSessi
 
     public static final Logger log = Logger.getLogger(DiameterRoClientFactory.class);
 
-    private Stack stack;
+    private String clientURI;
+    private String serverRealm;
+    private StackImpl stack;
     private RoSessionFactoryImpl roSessionFactory;
     private ISessionFactory sessionFactory;
     private ClientRoSession clientRoSession;
@@ -112,7 +115,18 @@ public class DiameterRoClientFactory implements IDiameterRoClient, ClientRoSessi
             XMLConfiguration xmlConfig = new XMLConfiguration(new FileInputStream(new File(configFile)));
             stack.init(xmlConfig);
             sessionFactory = new SessionFactoryImpl((IContainer) stack);
-            clientRoSessionData = new ClientRoSessionDataLocalImpl();
+            Configuration config = stack.getConfiguration();
+            log.debug("DIAMETER CONFIG :: " + config);
+            clientURI = config.getStringValue(Parameters.OwnDiameterURI.ordinal(), "aaa://localhost:3868");
+            log.debug("OwnDiameterURI=" + clientURI);
+            Configuration[] realmTable = config.getChildren(Parameters.RealmTable.ordinal());
+            for (Configuration realms : realmTable) {
+                Configuration[] realmEntries = realms.getChildren(Parameters.RealmEntry.ordinal());
+                for (Configuration realmEntry : realmEntries) {
+                    serverRealm = realmEntry.getStringValue(Parameters.RealmName.ordinal(), "server.mobicents.org");
+                    log.debug("RealmName=" + serverRealm);
+                }
+            }
             //Give time for Stack to stabilise
             Thread.sleep(500L);
             System.out.println("initStack() - COMPLETE ");
@@ -174,8 +188,6 @@ public class DiameterRoClientFactory implements IDiameterRoClient, ClientRoSessi
     public RoCreditControlAnswer sendEvent(RoCreditControlRequest roCreditControlRequest) throws DiameterClientException {
         try {
             System.out.println("sendEvent(RoCreditControlRequest) - START ");
-            //This creates a new App Session with sessionId generated.
-            //clientRoSession = new ClientRoSessionImpl(clientRoSessionData, roSessionFactory.getMessageFactory(), sessionFactory, roSessionFactory.getClientSessionListener(), roSessionFactory.getClientContextListener(), roSessionFactory.getStateListener());
             clientRoSession = sessionFactory.getNewAppSession(this.sessionFactory.getSessionId(), applicationId, clientRoSession.getClass(), (Object[]) null);
             clientRoSession.sendCreditControlRequest(roCreditControlRequest);
             System.out.println("sendEvent(RoCreditControlRequest) - COMPLETE ");
@@ -300,7 +312,7 @@ public class DiameterRoClientFactory implements IDiameterRoClient, ClientRoSessi
     }
 
     @Override
-    public RoCCAnswer sendEvent(RoCCRequest roCCRequest) throws DiameterClientException {
+    public RoCCAnswer sendEvent(RoCCRequest roCCRequest) {
         return null;
     }
 }
