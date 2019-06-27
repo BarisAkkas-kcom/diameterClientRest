@@ -5,9 +5,9 @@ import com.kcom.diameter.dictionary.AvpDictionary;
 import com.kcom.diameter.dto.RoCCAnswer;
 import com.kcom.diameter.dto.RoCCRequest;
 import com.kcom.diameter.exception.DiameterClientException;
+import com.kcom.diameter.helpers.Utils;
 import org.apache.log4j.Logger;
 import org.jdiameter.api.EventListener;
-import org.jdiameter.api.Stack;
 import org.jdiameter.api.*;
 import org.jdiameter.api.app.AppAnswerEvent;
 import org.jdiameter.api.app.AppRequestEvent;
@@ -25,15 +25,18 @@ import org.jdiameter.client.impl.StackImpl;
 import org.jdiameter.client.impl.app.ro.ClientRoSessionDataLocalImpl;
 import org.jdiameter.client.impl.helpers.XMLConfiguration;
 import org.jdiameter.common.api.app.ro.IClientRoSessionContext;
+import org.jdiameter.common.impl.app.ro.RoCreditControlRequestImpl;
 import org.jdiameter.common.impl.app.ro.RoSessionFactoryImpl;
 import org.jdiameter.server.impl.helpers.Parameters;
+import org.springframework.stereotype.Component;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
-public class DiameterRoClientFactory implements IDiameterRoClient, ClientRoSessionListener, IClientRoSessionContext, StateChangeListener<AppSession>, EventListener<Request, Answer>, NetworkReqListener {
+@Component
+public class DiameterRoClientFactory implements IDiameterRoClient, ClientRoSessionListener, IClientRoSessionContext, StateChangeListener<AppSession>, NetworkReqListener, EventListener<Request, Answer>, Future<RoCCAnswer> {
 
     public static final Logger log = Logger.getLogger(DiameterRoClientFactory.class);
 
@@ -48,12 +51,17 @@ public class DiameterRoClientFactory implements IDiameterRoClient, ClientRoSessi
     private long ccDefaultAuthAppId = 4;
     private ApplicationId applicationId = ApplicationId.createByAuthAppId(tgppVendorId, ccDefaultAuthAppId);
     ClientRoSessionDataLocalImpl clientRoSessionData;
-
+    private final CountDownLatch countDownLatch = new CountDownLatch(1);
+    private Map<String, RoCCRequest> inFlightTxns = new HashMap<String, RoCCRequest>();
+    private volatile RoCCAnswer roCCAnswerResult = null;
+    private volatile boolean cancelled = false;
     protected static final Set<Long> temporaryErrorCodes;
 
     private static final long DIAMETER_UNABLE_TO_DELIVER = 3002L;
     private static final long DIAMETER_TOO_BUSY = 3004L;
     private static final long DIAMETER_LOOP_DETECTED = 3005L;
+    protected static final int CC_REQUEST_TYPE_EVENT = 4;
+    protected int ccRequestNumber = 0;
 
     static {
         HashSet<Long> tmp = new HashSet<Long>();
@@ -103,13 +111,13 @@ public class DiameterRoClientFactory implements IDiameterRoClient, ClientRoSessi
         }
     }
 
-    public Stack getStack() {
+    public StackImpl getStack() {
         return stack;
     }
 
     private void initStack(String configFile, String dictionaryFile) throws InterruptedException {
         try {
-            System.out.println("initStack() - START ");
+            log.debug("initStack() - START ");
             stack = new StackImpl();
             avpDictionary.parseDictionary(dictionaryFile);
             XMLConfiguration xmlConfig = new XMLConfiguration(new FileInputStream(new File(configFile)));
@@ -129,7 +137,7 @@ public class DiameterRoClientFactory implements IDiameterRoClient, ClientRoSessi
             }
             //Give time for Stack to stabilise
             Thread.sleep(500L);
-            System.out.println("initStack() - COMPLETE ");
+            log.debug("initStack() - COMPLETE ");
         } catch (Exception e) {
             e.printStackTrace();
             this.destroy();
@@ -138,7 +146,7 @@ public class DiameterRoClientFactory implements IDiameterRoClient, ClientRoSessi
 
     private void initStack(String configFile) throws InterruptedException {
         try {
-            System.out.println("initStack() - START ");
+            log.debug("initStack() - START ");
             stack = new StackImpl();
             XMLConfiguration xmlConfig = new XMLConfiguration(new FileInputStream(new File(configFile)));
             stack.init(xmlConfig);
@@ -146,7 +154,7 @@ public class DiameterRoClientFactory implements IDiameterRoClient, ClientRoSessi
             clientRoSessionData = new ClientRoSessionDataLocalImpl();
             //Give time for Stack to stabilise
             Thread.sleep(500L);
-            System.out.println("initStack() - COMPLETE ");
+            log.debug("initStack() - COMPLETE ");
         } catch (Exception e) {
             e.printStackTrace();
             this.destroy();
@@ -155,14 +163,14 @@ public class DiameterRoClientFactory implements IDiameterRoClient, ClientRoSessi
 
     private void start() {
         try {
-            System.out.println("start() - START ");
+            log.debug("start() - START ");
             roSessionFactory = new RoSessionFactoryImpl(this.sessionFactory);
             roSessionFactory.setStateListener(this);
             roSessionFactory.setClientSessionListener(this);
             roSessionFactory.setClientContextListener(this);
             sessionFactory.registerAppFacory(ClientRoSession.class, roSessionFactory);
             stack.start();
-            System.out.println("start() - COMPLETE ");
+            log.debug("start() - COMPLETE ");
         } catch (IllegalDiameterStateException | InternalException e) {
             e.printStackTrace();
             this.destroy();
@@ -171,13 +179,13 @@ public class DiameterRoClientFactory implements IDiameterRoClient, ClientRoSessi
     }
 
     private void destroy() {
-        System.out.println("destroy() - START ");
+        log.debug("destroy() - START ");
         if (stack != null) {
             //Give time for Stack to stop
             try {
                 stack.stop(5000L, TimeUnit.MILLISECONDS, 0);
                 stack.destroy();
-                System.out.println("destroy() - COMPLETE ");
+                log.debug("destroy() - COMPLETE ");
             } catch (IllegalDiameterStateException | InternalException e) {
                 e.printStackTrace();
             }
@@ -185,46 +193,127 @@ public class DiameterRoClientFactory implements IDiameterRoClient, ClientRoSessi
 
     }
 
-    public RoCreditControlAnswer sendEvent(RoCreditControlRequest roCreditControlRequest) throws DiameterClientException {
+    public Future<RoCCAnswer> sendEventAsSyncrhonousCall(RoCCRequest roCCRequest) {
         try {
-            System.out.println("sendEvent(RoCreditControlRequest) - START ");
-            clientRoSession = sessionFactory.getNewAppSession(this.sessionFactory.getSessionId(), applicationId, clientRoSession.getClass(), (Object[]) null);
+            log.debug("sendEventAsSyncrhonousCall(RoCCRequest) - START ");
+            log.debug("Received: " + roCCRequest);
+            ClientRoSession clientRoSession = (ClientRoSession) roSessionFactory.getNewSession(sessionFactory.getSessionId(), ClientRoSession.class, this.getApplicationId(), null);
+            log.debug("clientRoSessionId: " + clientRoSession.getSessionId());
+            RoCreditControlRequest roCreditControlRequest = createCCR(CC_REQUEST_TYPE_EVENT, ccRequestNumber, clientRoSession, roCCRequest);
+            ccRequestNumber++;
+            Utils.printMessage(log, stack.getDictionary(), roCreditControlRequest.getMessage(), true);
+            inFlightTxns.put(clientRoSession.getSessionId(), roCCRequest);
+            log.debug("No of inflight requests after adding txin = " + roCCRequest.getTransactionId() + " session id = " + clientRoSession.getSessionId() + "=" + inFlightTxns.size());
             clientRoSession.sendCreditControlRequest(roCreditControlRequest);
-            System.out.println("sendEvent(RoCreditControlRequest) - COMPLETE ");
-        } catch (InternalException | IllegalDiameterStateException | RouteException | OverloadException e) {
-            e.printStackTrace();
-            this.destroy();
+            log.debug("sendEventAsSyncrhonousCall(RoCCRequest) - END ");
+            return this;
+        } catch (Exception e) {
+            throw new DiameterClientException(e);
         }
-        return null;
     }
 
-
-    private boolean isProvisional(long resultCode) {
-        return resultCode >= 1000 && resultCode < 2000;
+    @Override
+    public RoCCAnswer sendEvent(RoCCRequest roCCRequest) {
+        try {
+            log.debug("sendEvent(RoCCRequest) - START ");
+            Future<RoCCAnswer> roCCAnswerFuture = sendEventAsSyncrhonousCall(roCCRequest);
+            roCCRequest.getCountDownLatch().await();
+            log.debug("sendEvent(RoCCRequest) - END ");
+            return roCCAnswerFuture.get();
+        } catch (InterruptedException | ExecutionException e) {
+            e.printStackTrace();
+            roCCRequest.getCountDownLatch().countDown();
+            return null;
+        }
     }
 
-    private boolean isSuccess(long resultCode) {
-        return resultCode >= 2000 && resultCode < 3000;
-    }
-
-    private boolean isFailure(long code) {
-        return (!isProvisional(code) && !isSuccess(code) && ((code >= 3000 && code < 6000)) && !temporaryErrorCodes.contains(code));
+    protected RoCreditControlRequest createCCR(int ccRequestType, int requestNumber, ClientRoSession ccaSession, RoCCRequest roCCRequest)
+            throws Exception {
+        log.debug("createCCR(ccRequestType,requestNumber, ClientRoSession, RoCCRequest) - START ");
+        RoCreditControlRequest roCreditControlRequest = new RoCreditControlRequestImpl(ccaSession.getSessions().get(0)
+                .createRequest(RoCreditControlRequest.code, getApplicationId(), getServerRealmName()));
+        for (ApplicationId appid : roCreditControlRequest.getMessage().getApplicationIdAvps())
+            log.debug("AUTHAPPID : " + appid.getAuthAppId() + " ACCTAPPID" + appid.getAcctAppId() + " VENDORID" + appid.getVendorId());
+        AvpSet ccrAvps = roCreditControlRequest.getMessage().getAvps();
+        AvpSet subscriptionId = ccrAvps.addGroupedAvp(Avp.SUBSCRIPTION_ID);
+        subscriptionId.addAvp(Avp.SUBSCRIPTION_ID_TYPE, 0);
+        String subscriptionIdData = roCCRequest.getMsisdn();
+        subscriptionId.addAvp(Avp.SUBSCRIPTION_ID_DATA, subscriptionIdData, false);
+        log.debug("createCCR(ccRequestType,requestNumber, ClientRoSession, RoCCRequest) - END ");
+        return roCreditControlRequest;
     }
 
     @Override
     public void doCreditControlAnswer(ClientRoSession clientRoSession, RoCreditControlRequest roCreditControlRequest, RoCreditControlAnswer roCreditControlAnswer) throws InternalException, IllegalDiameterStateException, RouteException, OverloadException {
 
-        System.out.println("doCreditControlAnswer(ClientRoSession, RoCreditControlRequest, RoCreditControlAnswer) - START : \nRoCreditControlRequest:\n" + roCreditControlRequest + "\nRoCreditControlAnswer:\n" + roCreditControlAnswer);
-        System.out.println("doCreditControlAnswer(ClientRoSession, RoCreditControlRequest, RoCreditControlAnswer) - COMPLETE");
+        log.debug("doCreditControlAnswer(ClientRoSession, RoCreditControlRequest, RoCreditControlAnswer) - START : \nRoCreditControlRequest:\n" + roCreditControlRequest + "\nRoCreditControlAnswer:\n" + roCreditControlAnswer);
+
+        Utils.printMessage(log, stack.getDictionary(), roCreditControlAnswer.getMessage(), false);
+        String sessionId = "";
+
+        synchronized (this) {
+            try {
+                sessionId = roCreditControlAnswer.getMessage().getSessionId();
+                RoCCRequest roCCRequest = inFlightTxns.get(sessionId);
+                if (roCCRequest != null) {
+                    // Build an EventAuth Response
+                    RoCCAnswer roCCAnswer = getRoCCAnswer(roCCRequest, roCreditControlAnswer);
+                    log.debug("About to send: " + roCCAnswer);
+                    this.roCCAnswerResult = roCCAnswer;
+                    //countDownLatch = eventAuthRequest.getCountDownLatch();
+                    roCCRequest.getCountDownLatch().countDown();
+                    Thread.sleep(50);
+                }
+
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            } finally {
+                // Remove the in-flight txn
+
+                //phaser.arriveAndDeregister();
+                inFlightTxns.remove(clientRoSession.getSessionId());
+                log.debug("No of inflight requests after removing " + sessionId + "=" + inFlightTxns.size());
+                // Close the session
+                clientRoSession = fetchSession(sessionId);
+                clientRoSession.release();
+            }
+        }
+        log.debug("doCreditControlAnswer(ClientRoSession, RoCreditControlRequest, RoCreditControlAnswer) - COMPLETE");
+    }
+
+    private RoCCAnswer getRoCCAnswer(RoCCRequest roCCRequest, RoCreditControlAnswer answer) {
+        log.debug("getRoCCAnswer(RoCCRequest, RoCreditControlAnswer) - START");
+        RoCCAnswer roCCAnswer = new RoCCAnswer();
+        roCCAnswer.setMsisdn(roCCRequest.getMsisdn());
+        try {
+            final long resultCode = answer.getResultCodeAvp().getUnsigned32();
+            roCCAnswer.setReturnCode(String.valueOf(resultCode));
+            roCCAnswer.setSuccess(resultCode == 2001);
+            roCCAnswer.setTxnId(roCCRequest.getTransactionId());
+            if (resultCode == 2001) {
+                AvpSet avps = answer.getMessage().getAvps();
+                AvpSet grantedServiceUnit = avps.getAvps(Avp.GRANTED_SERVICE_UNIT);
+                log.debug("Granted-Service-Unit(431)=" + grantedServiceUnit);
+                Utils.printAvps(log, stack.getDictionary(), grantedServiceUnit);
+                long serviceSpecificUnits = avps.getAvp(Avp.GRANTED_SERVICE_UNIT).getGrouped().getAvp(Avp.CC_TIME).getInteger32();
+                log.debug("serviceSpecificUnits=" + serviceSpecificUnits);
+                String serviceSpecificUnitsString = String.valueOf(serviceSpecificUnits);
+                roCCAnswer.setReservedUnits(serviceSpecificUnitsString);
+            }
+        } catch (AvpDataException | InternalException | IllegalDiameterStateException e) {
+            throw new DiameterClientException(e);
+        }
+        log.debug("getRoCCAnswer(RoCCRequest, RoCreditControlAnswer) - END \n RoCCAnswer: \n" + roCCAnswer);
+        return roCCAnswer;
     }
 
     @Override
-    public void doReAuthRequest(ClientRoSession clientRoSession, ReAuthRequest reAuthRequest) throws InternalException, IllegalDiameterStateException, RouteException, OverloadException {
+    public void doReAuthRequest(ClientRoSession session, ReAuthRequest request) throws InternalException, IllegalDiameterStateException, RouteException, OverloadException {
 
     }
 
     @Override
-    public void doOtherEvent(AppSession appSession, AppRequestEvent appRequestEvent, AppAnswerEvent appAnswerEvent) throws InternalException, IllegalDiameterStateException, RouteException, OverloadException {
+    public void doOtherEvent(AppSession session, AppRequestEvent request, AppAnswerEvent answer) throws InternalException, IllegalDiameterStateException, RouteException, OverloadException {
 
     }
 
@@ -296,14 +385,14 @@ public class DiameterRoClientFactory implements IDiameterRoClient, ClientRoSessi
 
     @Override
     public void receivedSuccessMessage(Request request, Answer answer) {
-        System.out.println("receivedSuccessMessage(Request,Answer) - START : \nRequest:\n" + request + "\nAnswer:\n" + answer);
-        System.out.println("receivedSuccessMessage(Request,Answer) - COMPLETE");
+        log.debug("receivedSuccessMessage(Request,Answer) - START : \nRequest:\n" + request + "\nAnswer:\n" + answer);
+        log.debug("receivedSuccessMessage(Request,Answer) - COMPLETE");
 
     }
 
     @Override
     public void timeoutExpired(Request request) {
-        System.out.println("timeoutExpired(Request) - START: \nRequest:\n" + request);
+        log.debug("timeoutExpired(Request) - START: \nRequest:\n" + request);
     }
 
     @Override
@@ -312,9 +401,54 @@ public class DiameterRoClientFactory implements IDiameterRoClient, ClientRoSessi
     }
 
     @Override
-    public RoCCAnswer sendEvent(RoCCRequest roCCRequest) {
-        return null;
+    public boolean cancel(boolean mayInterruptIfRunning) {
+        if (isDone()) {
+            return false;
+        } else {
+            countDownLatch.countDown();
+            cancelled = true;
+            return !isDone();
+        }
     }
+
+    @Override
+    public boolean isCancelled() {
+        return cancelled;
+    }
+
+    @Override
+    public boolean isDone() {
+        return countDownLatch.getCount() == 0;
+    }
+
+    @Override
+    public RoCCAnswer get() throws InterruptedException, ExecutionException {
+        countDownLatch.await();
+        return roCCAnswerResult;
+    }
+
+    @Override
+    public RoCCAnswer get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
+        countDownLatch.await(timeout, unit);
+        return roCCAnswerResult;
+    }
+
+    public ApplicationId getApplicationId() {
+        return applicationId;
+    }
+
+    protected String getClientURI() {
+        return clientURI;
+    }
+
+    protected String getServerRealmName() {
+        return serverRealm;
+    }
+
+    public ClientRoSession fetchSession(String sessionId) throws InternalException {
+        return stack.getSession(sessionId, ClientRoSession.class);
+    }
+
 }
 
 

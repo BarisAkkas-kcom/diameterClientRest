@@ -9,7 +9,7 @@
     </IPAddresses>
     <Realm value="mpay.org" />
     <VendorID value="10415" />
-    <ProductName value="Ro Charging Client" />
+    <ProductName value="KCOM Ro Charging Client" />
     <FirmwareRevision value="1" />
     <Applications>
         <!-- CCA -->

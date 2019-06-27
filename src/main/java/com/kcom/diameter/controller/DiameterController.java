@@ -29,9 +29,9 @@ public class DiameterController {
 
         RoCCAnswer roCCAnswer = diameterRoClient.sendEvent(roCCRequest);
 
-        logger.info("Returning msisdn : " + roCCAnswer.getMsisdn() + ", result code: " +  roCCAnswer.getReturnCode() +
-            ", txin : " + roCCAnswer.getTxnId() + " as a result of Request msisdn : " + roCCRequest.getMsisdn()
-            + ", txin" + roCCRequest.getTransactionId());
+        logger.info("Returning msisdn : " + roCCAnswer.getMsisdn() + ", result code: " + roCCAnswer.getReturnCode() +
+                ", txin : " + roCCAnswer.getTxnId() + " as a result of Request msisdn : " + roCCRequest.getMsisdn()
+                + ", txin" + roCCRequest.getTransactionId());
 
         return new ResponseEntity<RoCCAnswer>(roCCAnswer, HttpStatus.OK);
     }
