@@ -7,7 +7,7 @@ import com.kcom.diameter.dto.RoCCRequest;
 import com.kcom.diameter.exception.DiameterClientException;
 import com.kcom.diameter.helpers.Utils;
 import org.apache.log4j.Logger;
-import org.jdiameter.api.EventListener;
+import org.apache.log4j.PropertyConfigurator;
 import org.jdiameter.api.*;
 import org.jdiameter.api.app.AppAnswerEvent;
 import org.jdiameter.api.app.AppRequestEvent;
@@ -18,7 +18,6 @@ import org.jdiameter.api.ro.ClientRoSession;
 import org.jdiameter.api.ro.ClientRoSessionListener;
 import org.jdiameter.api.ro.events.RoCreditControlAnswer;
 import org.jdiameter.api.ro.events.RoCreditControlRequest;
-import org.jdiameter.client.api.IContainer;
 import org.jdiameter.client.api.ISessionFactory;
 import org.jdiameter.client.impl.SessionFactoryImpl;
 import org.jdiameter.client.impl.StackImpl;
@@ -30,9 +29,14 @@ import org.jdiameter.common.impl.app.ro.RoSessionFactoryImpl;
 import org.jdiameter.server.impl.helpers.Parameters;
 import org.springframework.stereotype.Component;
 
+import javax.annotation.PostConstruct;
 import java.io.File;
 import java.io.FileInputStream;
-import java.util.*;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Properties;
 import java.util.concurrent.*;
 
 @Component
@@ -55,23 +59,44 @@ public class DiameterRoClientFactory implements IDiameterRoClient, ClientRoSessi
     private Map<String, RoCCRequest> inFlightTxns = new HashMap<String, RoCCRequest>();
     private volatile RoCCAnswer roCCAnswerResult = null;
     private volatile boolean cancelled = false;
-    protected static final Set<Long> temporaryErrorCodes;
 
-    private static final long DIAMETER_UNABLE_TO_DELIVER = 3002L;
-    private static final long DIAMETER_TOO_BUSY = 3004L;
-    private static final long DIAMETER_LOOP_DETECTED = 3005L;
-    protected static final int CC_REQUEST_TYPE_EVENT = 4;
-    protected int ccRequestNumber = 0;
+    private static final int CC_REQUEST_TYPE_EVENT = 4;
+    private int ccRequestNumber = 0;
 
-    static {
-        HashSet<Long> tmp = new HashSet<Long>();
-        tmp.add(DIAMETER_UNABLE_TO_DELIVER);
-        tmp.add(DIAMETER_TOO_BUSY);
-        tmp.add(DIAMETER_LOOP_DETECTED);
-        temporaryErrorCodes = Collections.unmodifiableSet(tmp);
-    }
+    private static final String configFile = "client-jdiameter-config.xml";
+    private static final String dictionaryFile = "dictionary.xml";
+
 
     private static final Map<String, DiameterRoClientFactory> instances = new HashMap<String, DiameterRoClientFactory>();
+
+    private void configLog4j() {
+        InputStream inStreamLog4j = DiameterRoClientFactory.class.getClassLoader().getResourceAsStream("log4j.properties");
+        Properties propertiesLog4j = new Properties();
+        try {
+            propertiesLog4j.load(inStreamLog4j);
+            PropertyConfigurator.configure(propertiesLog4j);
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            if (inStreamLog4j != null) {
+                try {
+                    inStreamLog4j.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+        log.debug("log4j configured");
+    }
+
+    @PostConstruct
+    private void init() {
+        log.info("Initialization started ...");
+        configLog4j();
+        DiameterRoClientFactory diameterRoClientFactory = new DiameterRoClientFactory(configFile, dictionaryFile);
+        instances.put(configFile, diameterRoClientFactory);
+        log.info("Initialization finished ...");
+    }
 
     public static DiameterRoClientFactory getInstance(String clientConfigLocation, String dictionaryFile) {
         DiameterRoClientFactory instance = instances.get(clientConfigLocation);
@@ -103,7 +128,17 @@ public class DiameterRoClientFactory implements IDiameterRoClient, ClientRoSessi
 
     private DiameterRoClientFactory(String configFile) {
         try {
-            this.initStack(configFile);
+            this.initStack(configFile, dictionaryFile);
+            this.start();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+            this.destroy();
+        }
+    }
+
+    private DiameterRoClientFactory() {
+        try {
+            this.initStack(configFile, dictionaryFile);
             this.start();
         } catch (InterruptedException e) {
             e.printStackTrace();
@@ -122,7 +157,7 @@ public class DiameterRoClientFactory implements IDiameterRoClient, ClientRoSessi
             avpDictionary.parseDictionary(dictionaryFile);
             XMLConfiguration xmlConfig = new XMLConfiguration(new FileInputStream(new File(configFile)));
             stack.init(xmlConfig);
-            sessionFactory = new SessionFactoryImpl((IContainer) stack);
+            sessionFactory = new SessionFactoryImpl(stack);
             Configuration config = stack.getConfiguration();
             log.debug("DIAMETER CONFIG :: " + config);
             clientURI = config.getStringValue(Parameters.OwnDiameterURI.ordinal(), "aaa://localhost:3868");
@@ -150,7 +185,7 @@ public class DiameterRoClientFactory implements IDiameterRoClient, ClientRoSessi
             stack = new StackImpl();
             XMLConfiguration xmlConfig = new XMLConfiguration(new FileInputStream(new File(configFile)));
             stack.init(xmlConfig);
-            sessionFactory = new SessionFactoryImpl((IContainer) stack);
+            sessionFactory = new SessionFactoryImpl(stack);
             clientRoSessionData = new ClientRoSessionDataLocalImpl();
             //Give time for Stack to stabilise
             Thread.sleep(500L);

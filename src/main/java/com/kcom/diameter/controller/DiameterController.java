@@ -17,7 +17,8 @@ public class DiameterController {
 
     public static final Logger logger = LoggerFactory.getLogger(DiameterController.class);
 
-    final String clientConfig = "client-jdiameter-config.xml";
+    private String configFile = "src/main/resources/client-jdiameter-config.xml";
+    private String dictionaryFile = "src/main/resources/dictionary.xml";
 
 
     @RequestMapping("/sendCCR")
@@ -25,7 +26,7 @@ public class DiameterController {
 
         logger.info(roCCRequest.getMsisdn());
 
-        IDiameterRoClient diameterRoClient = DiameterRoClientFactory.getInstance(clientConfig);
+        IDiameterRoClient diameterRoClient = DiameterRoClientFactory.getInstance(configFile, dictionaryFile);
 
         RoCCAnswer roCCAnswer = diameterRoClient.sendEvent(roCCRequest);
 
