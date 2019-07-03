@@ -13,7 +13,7 @@ public class Utils {
 
     public static void printMessage(Logger log, Dictionary avpDictionary, Message message, boolean sending) {
         log.info((sending ? "Sending " : "Received ") + (message.isRequest() ? "Request: " : "Answer: ") + message.getCommandCode() + " [E2E:" +
-                message.getEndToEndIdentifier() + " -- HBH:" + message.getHopByHopIdentifier() + " -- AppID:" + message.getApplicationId() + "]");
+            message.getEndToEndIdentifier() + " -- HBH:" + message.getHopByHopIdentifier() + " -- AppID:" + message.getApplicationId() + "]");
         log.info("Request AVPs:");
         try {
             printAvps(log, avpDictionary, message.getAvps());
@@ -60,7 +60,7 @@ public class Utils {
                 }
 
                 log.info(prefix + "<avp name=\"" + avpRep.getName() + "\" code=\"" + avp.getCode() +
-                        "\" vendor=\"" + avp.getVendorId() + "\" value=\"" + value + "\" />");
+                    "\" vendor=\"" + avp.getVendorId() + "\" value=\"" + value + "\" />");
             }
         }
     }

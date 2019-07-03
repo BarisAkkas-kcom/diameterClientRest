@@ -40,7 +40,7 @@
   *   02110-1301 USA, or see the FSF site: http://www.fsf.org.
   */
 
-package com.kcom.diameter.dictionary;
+ package com.kcom.diameter.dictionary;
 
  import org.apache.log4j.Logger;
  import org.jdiameter.client.impl.DictionarySingleton;
@@ -54,7 +54,6 @@ package com.kcom.diameter.dictionary;
  import java.util.Map;
 
  /**
-  *
   * AvpDictionary.java
   *
   * @author <a href="mailto:brainslog@gmail.com"> Alexandre Mendonca </a>
@@ -63,80 +62,80 @@ package com.kcom.diameter.dictionary;
   */
  public class AvpDictionary {
 
-   private static transient Logger logger = Logger.getLogger(AvpDictionary.class);
+     private static transient Logger logger = Logger.getLogger(AvpDictionary.class);
 
-   public static final AvpDictionary INSTANCE = new AvpDictionary();
+     public static final AvpDictionary INSTANCE = new AvpDictionary();
 
-   //dont like that, this is not the same instance as in AvpUtils... ech.
-   private DictionaryImpl stackDictionary;
+     //dont like that, this is not the same instance as in AvpUtils... ech.
+     private DictionaryImpl stackDictionary;
 
-   private HashMap<AvpRepresentation, AvpRepresentation> avpMap = new HashMap<AvpRepresentation, AvpRepresentation>();
+     private HashMap<AvpRepresentation, AvpRepresentation> avpMap = new HashMap<AvpRepresentation, AvpRepresentation>();
 
-   private Map<String, AvpRepresentation> nameToCodeMap = new HashMap<String, AvpRepresentation>();
+     private Map<String, AvpRepresentation> nameToCodeMap = new HashMap<String, AvpRepresentation>();
 
-   private AvpDictionary() {
-     // Exists only to defeat instantiation.
-   }
+     private AvpDictionary() {
+         // Exists only to defeat instantiation.
+     }
 
-   public void parseDictionary(String filename) throws Exception {
-     FileInputStream fis = null;
-     try {
-       fis = new FileInputStream(filename);
-       parseDictionary(fis);
-     } finally {
-       if (fis != null) {
+     public void parseDictionary(String filename) throws Exception {
+         FileInputStream fis = null;
          try {
-           fis.close();
-         } catch (IOException e) {
-           logger.error("Failed to close FileInputStream", e);
+             fis = new FileInputStream(filename);
+             parseDictionary(fis);
+         } finally {
+             if (fis != null) {
+                 try {
+                     fis.close();
+                 } catch (IOException e) {
+                     logger.error("Failed to close FileInputStream", e);
+                 }
+                 fis = null;
+             }
          }
-         fis = null;
-       }
-     }
-   }
-
-   public void parseDictionary(InputStream is) throws Exception {
-     // we override default conf here.
-     this.stackDictionary = (DictionaryImpl) DictionarySingleton.getDictionary(is);
-     this.avpMap.clear();
-     this.nameToCodeMap.clear();
-
-     //dont like that....
-     // fill AVP Map
-     for (org.jdiameter.api.validation.AvpRepresentation value:this.stackDictionary.getAvpMap().values()) {
-       AvpRepresentation avp = new AvpRepresentation((AvpRepresentationImpl) value);
-       this.avpMap.put(avp, avp);
-       this.nameToCodeMap.put(avp.getName(), avp);
-     }
-   }
-
-   public AvpRepresentation getAvp(int code) {
-     return getAvp(code, 0);
-   }
-
-   public AvpRepresentation getAvp(int code, long vendorId) {
-     AvpRepresentation avp = avpMap.get(getMapKey(code, vendorId));
-
-     if (avp == null) {
-       logger.warn("AVP with code " + code + " and Vendor-Id " + vendorId + " not present in dictionary!");
      }
 
-     return avp;
-   }
+     public void parseDictionary(InputStream is) throws Exception {
+         // we override default conf here.
+         this.stackDictionary = (DictionaryImpl) DictionarySingleton.getDictionary(is);
+         this.avpMap.clear();
+         this.nameToCodeMap.clear();
 
-   public AvpRepresentation getAvp(String avpName) {
-     AvpRepresentation avpKey = nameToCodeMap.get(avpName);
+         //dont like that....
+         // fill AVP Map
+         for (org.jdiameter.api.validation.AvpRepresentation value : this.stackDictionary.getAvpMap().values()) {
+             AvpRepresentation avp = new AvpRepresentation((AvpRepresentationImpl) value);
+             this.avpMap.put(avp, avp);
+             this.nameToCodeMap.put(avp.getName(), avp);
+         }
+     }
 
-     return avpKey != null ? avpMap.get(avpKey) : null;
-   }
+     public AvpRepresentation getAvp(int code) {
+         return getAvp(code, 0);
+     }
 
-   /**
-    * @param code
-    * @param vendorId
-    * @return
-    */
-   private AvpRepresentation getMapKey(int code, long vendorId) {
-     return new AvpRepresentation(code, vendorId);
-   }
+     public AvpRepresentation getAvp(int code, long vendorId) {
+         AvpRepresentation avp = avpMap.get(getMapKey(code, vendorId));
+
+         if (avp == null) {
+             logger.warn("AVP with code " + code + " and Vendor-Id " + vendorId + " not present in dictionary!");
+         }
+
+         return avp;
+     }
+
+     public AvpRepresentation getAvp(String avpName) {
+         AvpRepresentation avpKey = nameToCodeMap.get(avpName);
+
+         return avpKey != null ? avpMap.get(avpKey) : null;
+     }
+
+     /**
+      * @param code
+      * @param vendorId
+      * @return
+      */
+     private AvpRepresentation getMapKey(int code, long vendorId) {
+         return new AvpRepresentation(code, vendorId);
+     }
 
  }
