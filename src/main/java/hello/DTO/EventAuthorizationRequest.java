@@ -9,70 +9,42 @@ public class EventAuthorizationRequest {
 
   @JsonIgnore
   private final CountDownLatch countDownLatch = new CountDownLatch(1);
-
-  public CountDownLatch getCountDownLatch() {
-    return countDownLatch;
-  }
+  private String transactionId = null;
 
 //  public void setCountDownLatch(CountDownLatch countDownLatch) {
 //    this.countDownLatch = countDownLatch;
 //  }
-
-  private String transactionId = null;
-
   private String msisdn = null;
-
   private String balanceNotificationRequired = null;
-
   private String balanceNotificationMethod = null;
-
   private String requestingEntity = null;
-
   private String retailerName = "";
-
   private String information = "";
-
   private Date eventTime = null;
-
   private String direction = null;
-
   private String directionString = null;
-
   private String eventType = null;
-
   private String eventSubType = null;
-
   private String expirationTime = null;
-
   private String origType = null;
-
   private String origAddress = null;
-
   private String destType = null;
-
   private String destAddress = null;
-
   private String volume = null;
-
   private String duration = null;
-
   private String location = null;
-
   private String bearerServiceType = null;
-
   private String reversalAllowed = null;
-
   private String reversalAllowedString = null;
-
   private String authorisationMethod = null;
-
   private String callType = null;
-
   private String externalPrice = null;
-
   private String typeOfNumber = null;
-
   private String reservationMethod = null;
+
+  public CountDownLatch getCountDownLatch() {
+    return countDownLatch;
+  }
 
   public String getTransactionId() {
     return transactionId;
@@ -301,12 +273,12 @@ public class EventAuthorizationRequest {
   @Override
   public String toString() {
     return "EventAuthorizationRequest [transactionId=" + transactionId + ", msisdn=" + msisdn + ", balanceNotificationRequired=" + balanceNotificationRequired
-            + ", balanceNotificationMethod=" + balanceNotificationMethod + ", requestingEntity=" + requestingEntity + ", retailerName=" + retailerName
-            + ", information=" + information + ", eventTime=" + eventTime + ", direction=" + direction + ", directionString=" + directionString + ", eventType="
-            + eventType + ", eventSubType=" + eventSubType + ", expirationTime=" + expirationTime + ", origType=" + origType + ", origAddress=" + origAddress
-            + ", destType=" + destType + ", destAddress=" + destAddress + ", volume=" + volume + ", duration=" + duration + ", location=" + location
-            + ", bearerServiceType=" + bearerServiceType + ", reversalAllowed=" + reversalAllowed + ", reversalAllowedString=" + reversalAllowedString
-            + ", authorisationMethod=" + authorisationMethod + ", callType=" + callType + ", externalPrice=" + externalPrice + ", typeOfNumber=" + typeOfNumber
-            + ", reservationMethod=" + reservationMethod + "]";
+        + ", balanceNotificationMethod=" + balanceNotificationMethod + ", requestingEntity=" + requestingEntity + ", retailerName=" + retailerName
+        + ", information=" + information + ", eventTime=" + eventTime + ", direction=" + direction + ", directionString=" + directionString + ", eventType="
+        + eventType + ", eventSubType=" + eventSubType + ", expirationTime=" + expirationTime + ", origType=" + origType + ", origAddress=" + origAddress
+        + ", destType=" + destType + ", destAddress=" + destAddress + ", volume=" + volume + ", duration=" + duration + ", location=" + location
+        + ", bearerServiceType=" + bearerServiceType + ", reversalAllowed=" + reversalAllowed + ", reversalAllowedString=" + reversalAllowedString
+        + ", authorisationMethod=" + authorisationMethod + ", callType=" + callType + ", externalPrice=" + externalPrice + ", typeOfNumber=" + typeOfNumber
+        + ", reservationMethod=" + reservationMethod + "]";
   }
 }

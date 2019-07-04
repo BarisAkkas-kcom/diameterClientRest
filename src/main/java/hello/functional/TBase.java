@@ -22,7 +22,13 @@
 package hello.functional;
 
 import org.apache.log4j.Logger;
-import org.jdiameter.api.*;
+import org.jdiameter.api.Answer;
+import org.jdiameter.api.ApplicationId;
+import org.jdiameter.api.Configuration;
+import org.jdiameter.api.EventListener;
+import org.jdiameter.api.NetworkReqListener;
+import org.jdiameter.api.Request;
+import org.jdiameter.api.Stack;
 import org.jdiameter.api.app.AppSession;
 import org.jdiameter.api.app.StateChangeListener;
 import org.jdiameter.client.api.ISessionFactory;
@@ -33,7 +39,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- *
  * @author <a href="mailto:baranowb@gmail.com"> Bartosz Baranowski </a>
  */
 public abstract class TBase implements EventListener<Request, Answer>, NetworkReqListener, StateChangeListener<AppSession> {
@@ -93,8 +98,7 @@ public abstract class TBase implements EventListener<Request, Answer>, NetworkRe
         }
       }
       return sb.toString();
-    }
-    else {
+    } else {
       return "";
     }
   }

@@ -147,8 +147,7 @@ public class Client extends AbstractClient {
         default:
 
       }
-    }
-    catch (Exception e) {
+    } catch (Exception e) {
       e.printStackTrace();
     }
   }

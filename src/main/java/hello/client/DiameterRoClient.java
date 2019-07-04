@@ -14,8 +14,6 @@ import org.jdiameter.api.ro.ClientRoSession;
 import org.jdiameter.api.ro.events.RoCreditControlAnswer;
 import org.jdiameter.api.ro.events.RoCreditControlRequest;
 
-import java.util.concurrent.CountDownLatch;
-
 public abstract class DiameterRoClient extends AbstractClient {
 
   //protected CountDownLatch countDownLatch = new CountDownLatch(1);
@@ -27,8 +25,7 @@ public abstract class DiameterRoClient extends AbstractClient {
       ccRequestNumber++;
       clientRoSession.sendCreditControlRequest(initialRequest);
       Utils.printMessage(log, stack.getDictionary(), initialRequest.getMessage(), true);
-    }
-    catch (Exception e) {
+    } catch (Exception e) {
       throw new DiameterClientException(e);
     }
   }
@@ -40,8 +37,7 @@ public abstract class DiameterRoClient extends AbstractClient {
       ccRequestNumber++;
       clientRoSession.sendCreditControlRequest(interimRequest);
       Utils.printMessage(log, stack.getDictionary(), interimRequest.getMessage(), true);
-    }
-    catch (Exception e) {
+    } catch (Exception e) {
       throw new DiameterClientException(e);
     }
   }
@@ -53,8 +49,7 @@ public abstract class DiameterRoClient extends AbstractClient {
       ccRequestNumber++;
       clientRoSession.sendCreditControlRequest(terminateRequest);
       Utils.printMessage(log, stack.getDictionary(), terminateRequest.getMessage(), true);
-    }
-    catch (Exception e) {
+    } catch (Exception e) {
       throw new DiameterClientException(e);
     }
   }
@@ -66,8 +61,7 @@ public abstract class DiameterRoClient extends AbstractClient {
       ccRequestNumber++;
       clientRoSession.sendCreditControlRequest(eventRequest);
       Utils.printMessage(log, stack.getDictionary(), eventRequest.getMessage(), true);
-    }
-    catch (Exception e) {
+    } catch (Exception e) {
       throw new DiameterClientException(e);
     }
   }

@@ -25,7 +25,6 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 
 /**
- *
  * @author <a href="mailto:baranowb@gmail.com"> Bartosz Baranowski </a>
  */
 public class ErrorHolder {
@@ -73,8 +72,7 @@ public class ErrorHolder {
     StringBuilder sb = new StringBuilder(" Msg: ");
     if (errorMessage != null) {
       sb.append(errorMessage).append(", stack trace: \n");
-    }
-    else {
+    } else {
       sb.append("EMPTY, stack trace: \n");
     }
 

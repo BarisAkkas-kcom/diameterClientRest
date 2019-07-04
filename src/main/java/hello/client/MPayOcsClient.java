@@ -5,77 +5,50 @@ import hello.DTO.EventAuthorizationResponse;
 import hello.dictionary.AvpDictionary;
 import hello.functional.Utils;
 import org.apache.log4j.PropertyConfigurator;
-import org.jdiameter.api.*;
+import org.jdiameter.api.ApplicationId;
+import org.jdiameter.api.Avp;
+import org.jdiameter.api.AvpDataException;
+import org.jdiameter.api.AvpSet;
+import org.jdiameter.api.IllegalDiameterStateException;
+import org.jdiameter.api.InternalException;
+import org.jdiameter.api.Mode;
+import org.jdiameter.api.OverloadException;
+import org.jdiameter.api.Peer;
+import org.jdiameter.api.PeerState;
+import org.jdiameter.api.PeerTable;
+import org.jdiameter.api.RouteException;
 import org.jdiameter.api.Stack;
 import org.jdiameter.api.ro.ClientRoSession;
 import org.jdiameter.api.ro.events.RoCreditControlAnswer;
 import org.jdiameter.api.ro.events.RoCreditControlRequest;
-import org.springframework.beans.factory.config.ConfigurableBeanFactory;
-import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 @Component
 //@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
-public class MPayOcsClient extends DiameterRoClient implements Future <EventAuthorizationResponse> {
+public class MPayOcsClient extends DiameterRoClient implements Future<EventAuthorizationResponse> {
 
-  private volatile EventAuthorizationResponse result = null;
-  private volatile boolean cancelled = false;
-  //private CountDownLatch countDownLatch;
-  //final Phaser phaser = new Phaser(1);
-
-  final String clientConfig = "client-jdiameter-config.xml";
   private static final String dictionaryFile = "dictionary.xml";
   private static final Map<String, MPayOcsClient> instances = new HashMap<String, MPayOcsClient>();
-
+  //private CountDownLatch countDownLatch;
+  //final Phaser phaser = new Phaser(1);
+  final String clientConfig = "client-jdiameter-config.xml";
+  private volatile EventAuthorizationResponse result = null;
+  private volatile boolean cancelled = false;
   private AvpDictionary dictionary = AvpDictionary.INSTANCE;
   private Map<String, EventAuthorizationRequest> inFlightTxns = new HashMap<String, EventAuthorizationRequest>();
-
-  @PostConstruct
-  private void init() {
-    log.info("Initialization started ...");
-    configLog4j();
-    MPayOcsClient instance = new MPayOcsClient(clientConfig);
-    instances.put(clientConfig, instance);
-    log.info("Initialization finished ...");
-  }
-
-  private void configLog4j() {
-    InputStream inStreamLog4j = MPayOcsClient.class.getClassLoader().getResourceAsStream("log4j.properties");
-    Properties propertiesLog4j = new Properties();
-    try {
-      propertiesLog4j.load(inStreamLog4j);
-      PropertyConfigurator.configure(propertiesLog4j);
-    }
-    catch (Exception e) {
-      e.printStackTrace();
-    }
-    finally {
-      if (inStreamLog4j != null) {
-        try {
-          inStreamLog4j.close();
-        }
-        catch (IOException e) {
-          e.printStackTrace();
-        }
-      }
-    }
-    log.debug("log4j configured");
-  }
-
-  public static MPayOcsClient getInstance(String clientConfigLocation) {
-    MPayOcsClient instance = instances.get(clientConfigLocation);
-    if (instance == null) {
-      instance = new MPayOcsClient(clientConfigLocation);
-      instances.put(clientConfigLocation, instance);
-    }
-    return instance;
-  }
 
   // Private force singletons to be created with getInstance(String clientConfigLocation)
   private MPayOcsClient() {
@@ -98,10 +71,47 @@ public class MPayOcsClient extends DiameterRoClient implements Future <EventAuth
       start(Mode.ANY_PEER, 30000, TimeUnit.SECONDS);
       Stack stack = getStack();
       printStackInfo(stack);
-    }
-    catch (Exception e) {
+    } catch (Exception e) {
       throw new MPayDiameterClientException("An error occurred while parsing the Diameter Configuration", e);
     }
+  }
+
+  public static MPayOcsClient getInstance(String clientConfigLocation) {
+    MPayOcsClient instance = instances.get(clientConfigLocation);
+    if (instance == null) {
+      instance = new MPayOcsClient(clientConfigLocation);
+      instances.put(clientConfigLocation, instance);
+    }
+    return instance;
+  }
+
+  @PostConstruct
+  private void init() {
+    log.info("Initialization started ...");
+    configLog4j();
+    MPayOcsClient instance = new MPayOcsClient(clientConfig);
+    instances.put(clientConfig, instance);
+    log.info("Initialization finished ...");
+  }
+
+  private void configLog4j() {
+    InputStream inStreamLog4j = MPayOcsClient.class.getClassLoader().getResourceAsStream("log4j.properties");
+    Properties propertiesLog4j = new Properties();
+    try {
+      propertiesLog4j.load(inStreamLog4j);
+      PropertyConfigurator.configure(propertiesLog4j);
+    } catch (Exception e) {
+      e.printStackTrace();
+    } finally {
+      if (inStreamLog4j != null) {
+        try {
+          inStreamLog4j.close();
+        } catch (IOException e) {
+          e.printStackTrace();
+        }
+      }
+    }
+    log.debug("log4j configured");
   }
 
   public final void sendEvent(EventAuthorizationRequest eventAuthRequest) {
@@ -113,15 +123,15 @@ public class MPayOcsClient extends DiameterRoClient implements Future <EventAuth
       ccRequestNumber++;
       Utils.printMessage(log, stack.getDictionary(), eventRequest.getMessage(), true);
       inFlightTxns.put(clientRoSession.getSessionId(), eventAuthRequest);
-      log.debug("No of inflight requests after adding txin = " + eventAuthRequest.getTransactionId() + " session id = " + clientRoSession.getSessionId() + "=" + inFlightTxns.size());
+      log.debug("No of inflight requests after adding txin = " + eventAuthRequest.getTransactionId() + " session id = " + clientRoSession.getSessionId() +
+          "=" + inFlightTxns.size());
       clientRoSession.sendCreditControlRequest(eventRequest);
-    }
-    catch (Exception e) {
+    } catch (Exception e) {
       throw new MPayDiameterClientException(e);
     }
   }
 
-  private Future<EventAuthorizationResponse> sendEventAuth(EventAuthorizationRequest eventAuthRequest ) {
+  private Future<EventAuthorizationResponse> sendEventAuth(EventAuthorizationRequest eventAuthRequest) {
     try {
       log.debug("Received: " + eventAuthRequest);
       ClientRoSession clientRoSession = getSession();
@@ -130,11 +140,11 @@ public class MPayOcsClient extends DiameterRoClient implements Future <EventAuth
       ccRequestNumber++;
       Utils.printMessage(log, stack.getDictionary(), eventRequest.getMessage(), true);
       inFlightTxns.put(clientRoSession.getSessionId(), eventAuthRequest);
-      log.debug("No of inflight requests after adding txin = " + eventAuthRequest.getTransactionId() + " session id = " + clientRoSession.getSessionId() + "=" + inFlightTxns.size());
+      log.debug("No of inflight requests after adding txin = " + eventAuthRequest.getTransactionId() + " session id = " + clientRoSession.getSessionId() +
+          "=" + inFlightTxns.size());
       clientRoSession.sendCreditControlRequest(eventRequest);
       return this;
-    }
-    catch (Exception e) {
+    } catch (Exception e) {
       throw new MPayDiameterClientException(e);
     }
   }
@@ -153,7 +163,7 @@ public class MPayOcsClient extends DiameterRoClient implements Future <EventAuth
       eventAuthRequest.getCountDownLatch().countDown();
       //phaser.arriveAndDeregister();
       return null;
-    } catch (ExecutionException e ) {
+    } catch (ExecutionException e) {
       e.printStackTrace();
       eventAuthRequest.getCountDownLatch().countDown();
       //phaser.arriveAndDeregister();
@@ -165,12 +175,13 @@ public class MPayOcsClient extends DiameterRoClient implements Future <EventAuth
       throws Exception {
     RoCreditControlRequest ccr = createCCR(ccRequestType, requestNumber, ccaSession);
 
-    for (ApplicationId appid : ccr.getMessage().getApplicationIdAvps())
-         log.debug("AUTHAPPID : " + appid.getAuthAppId() + " ACCTAPPID" + appid.getAcctAppId() + " VENDORID" + appid.getVendorId());
+    for (ApplicationId appid : ccr.getMessage().getApplicationIdAvps()) {
+      log.debug("AUTHAPPID : " + appid.getAuthAppId() + " ACCTAPPID" + appid.getAcctAppId() + " VENDORID" + appid.getVendorId());
+    }
 
     // AVPs present by default: Origin-Host, Origin-Realm, Session-Id,
     // Vendor-Specific-Application-Id, Destination-Realm
-         AvpSet ccrAvps = ccr.getMessage().getAvps();
+    AvpSet ccrAvps = ccr.getMessage().getAvps();
 
     // *[ Subscription-Id ]
     // 8.46. Subscription-Id AVP
@@ -254,8 +265,7 @@ public class MPayOcsClient extends DiameterRoClient implements Future <EventAuth
         String serviceSpecificUnitsString = String.valueOf(serviceSpecificUnits);
         eventAuthResponse.setReservedUnits(serviceSpecificUnitsString);
       }
-    }
-    catch (AvpDataException | InternalException | IllegalDiameterStateException e) {
+    } catch (AvpDataException | InternalException | IllegalDiameterStateException e) {
       throw new MPayDiameterClientException(e);
     }
     return eventAuthResponse;
@@ -268,7 +278,7 @@ public class MPayOcsClient extends DiameterRoClient implements Future <EventAuth
    */
   @Override
   public void doCreditControlAnswer(ClientRoSession session, RoCreditControlRequest request, RoCreditControlAnswer answer)
-          throws InternalException, IllegalDiameterStateException, RouteException, OverloadException {
+      throws InternalException, IllegalDiameterStateException, RouteException, OverloadException {
 
     log.debug("inside MPAYOCSClient doCreditControlAnswer ");
 
@@ -286,7 +296,7 @@ public class MPayOcsClient extends DiameterRoClient implements Future <EventAuth
           this.result = eventAuthResponse;
           //countDownLatch = eventAuthRequest.getCountDownLatch();
           eventAuthRequest.getCountDownLatch().countDown();
-          Thread.sleep(50);
+          Thread.sleep(10);
         }
 
       }
@@ -329,15 +339,13 @@ public class MPayOcsClient extends DiameterRoClient implements Future <EventAuth
     List<Peer> peers;
     try {
       peers = stack.unwrap(PeerTable.class).getPeerTable();
-    }
-    catch (InternalException e) {
+    } catch (InternalException e) {
       throw new MPayDiameterClientException(e);
     }
     if (peers.size() == 1) {
       // ok
       log.debug("Diameter Stack :: Peers OK (1) :: " + peers.iterator().next());
-    }
-    else if (peers.size() > 1) {
+    } else if (peers.size() > 1) {
       // works better with replicated, since disconnected peers are also listed
       boolean foundConnected = false;
       for (Peer p : peers) {
@@ -348,8 +356,7 @@ public class MPayOcsClient extends DiameterRoClient implements Future <EventAuth
           foundConnected = true;
         }
       }
-    }
-    else {
+    } else {
       throw new MPayDiameterClientException("Diameter Stack :: Wrong number (0) of connected peers :: " + peers);
     }
   }
@@ -359,7 +366,7 @@ public class MPayOcsClient extends DiameterRoClient implements Future <EventAuth
     if (isDone()) {
       return false;
     } else {
-     // countDownLatch.countDown();
+      // countDownLatch.countDown();
       //phaser.arriveAndDeregister();
       cancelled = true;
       return !isDone();
@@ -382,7 +389,7 @@ public class MPayOcsClient extends DiameterRoClient implements Future <EventAuth
   public EventAuthorizationResponse get() throws InterruptedException, ExecutionException {
     //Thread.sleep(200);
     //countDownLatch.await();
-   // phaser.arriveAndAwaitAdvance();
+    // phaser.arriveAndAwaitAdvance();
     return result;
   }
 

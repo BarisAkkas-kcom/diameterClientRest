@@ -22,7 +22,13 @@
 package hello.functional;
 
 import org.apache.log4j.Logger;
-import org.jdiameter.api.*;
+import org.jdiameter.api.Answer;
+import org.jdiameter.api.ApplicationId;
+import org.jdiameter.api.Configuration;
+import org.jdiameter.api.EventListener;
+import org.jdiameter.api.Network;
+import org.jdiameter.api.NetworkReqListener;
+import org.jdiameter.api.Request;
 import org.jdiameter.api.validation.ValidatorLevel;
 import org.jdiameter.common.impl.validation.DictionaryImpl;
 import org.jdiameter.server.impl.StackImpl;
@@ -33,7 +39,6 @@ import java.io.InputStream;
 import java.util.Set;
 
 /**
- *
  * @author <a href="mailto:brainslog@gmail.com"> Alexandre Mendonca </a>
  * @author <a href="mailto:baranowb@gmail.com"> Bartosz Baranowski </a>
  */
@@ -46,32 +51,32 @@ public class StackCreator extends StackImpl {
   }
 
   public StackCreator(InputStream streamConfig, NetworkReqListener networkReqListener, EventListener<Request, Answer> eventListener, String dooer,
-      Boolean isServer, ApplicationId... appIds) throws Exception {
+                      Boolean isServer, ApplicationId... appIds) throws Exception {
     init(isServer ? new XMLConfiguration(streamConfig) : new org.jdiameter.client.impl.helpers.XMLConfiguration(streamConfig), networkReqListener,
         eventListener, dooer, isServer, appIds);
   }
 
   public StackCreator(String stringConfig, NetworkReqListener networkReqListener, EventListener<Request, Answer> eventListener, String dooer, Boolean isServer,
-      ApplicationId... appIds) throws Exception {
+                      ApplicationId... appIds) throws Exception {
     init(isServer ? new XMLConfiguration(new ByteArrayInputStream(stringConfig.getBytes())) : new org.jdiameter.client.impl.helpers.XMLConfiguration(
         new ByteArrayInputStream(stringConfig.getBytes())), networkReqListener, eventListener, dooer, isServer, appIds);
   }
 
   public void init(String stringConfig, NetworkReqListener networkReqListener, EventListener<Request, Answer> eventListener, String dooer, Boolean isServer,
-      ApplicationId... appIds) throws Exception {
+                   ApplicationId... appIds) throws Exception {
     this.init(isServer ? new XMLConfiguration(new ByteArrayInputStream(stringConfig.getBytes())) :
         new org.jdiameter.client.impl.helpers.XMLConfiguration(new ByteArrayInputStream(
             stringConfig.getBytes())), networkReqListener, eventListener, dooer, isServer, appIds);
   }
 
   public void init(InputStream streamConfig, NetworkReqListener networkReqListener, EventListener<Request, Answer> eventListener, String dooer,
-      Boolean isServer, ApplicationId... appIds) throws Exception {
+                   Boolean isServer, ApplicationId... appIds) throws Exception {
     this.init(isServer ? new XMLConfiguration(streamConfig) :
         new org.jdiameter.client.impl.helpers.XMLConfiguration(streamConfig), networkReqListener, eventListener, dooer, isServer, appIds);
   }
 
   public void init(Configuration config, NetworkReqListener networkReqListener, EventListener<Request, Answer> eventListener, String identifier,
-      Boolean isServer, ApplicationId... appIds) throws Exception {
+                   Boolean isServer, ApplicationId... appIds) throws Exception {
     // local one
     try {
       this.init(config);
@@ -100,8 +105,7 @@ public class StackCreator extends StackImpl {
         if (logger.isInfoEnabled()) {
           logger.info("Diameter " + identifier + " :: Supporting " + appIds.length + " applications.");
         }
-      }
-      else {
+      } else {
         Set<ApplicationId> stackAppIds = getMetaData().getLocalPeer().getCommonApplications();
 
         for (ApplicationId appId : stackAppIds) {
@@ -115,8 +119,7 @@ public class StackCreator extends StackImpl {
           logger.info("Diameter " + identifier + " :: Supporting " + stackAppIds.size() + " applications.");
         }
       }
-    }
-    catch (Exception e) {
+    } catch (Exception e) {
       logger.error("Failure creating stack '" + identifier + "'", e);
     }
 

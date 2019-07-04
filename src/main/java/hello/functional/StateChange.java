@@ -22,7 +22,6 @@
 package hello.functional;
 
 /**
- *
  * @author <a href="mailto:baranowb@gmail.com"> Bartosz Baranowski </a>
  */
 public class StateChange<T> {
@@ -73,14 +72,14 @@ public class StateChange<T> {
       if (other.newState != null) {
         return false;
       }
-    }
-    else if (!newState.equals(other.newState)) {
+    } else if (!newState.equals(other.newState)) {
       return false;
     }
     if (oldState == null) {
-        return other.oldState == null;
+      return other.oldState == null;
+    } else {
+      return oldState.equals(other.oldState);
     }
-    else return oldState.equals(other.oldState);
   }
 
   @Override

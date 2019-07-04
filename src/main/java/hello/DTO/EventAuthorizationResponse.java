@@ -4,13 +4,13 @@ public class EventAuthorizationResponse {
 
   private String txnId;
 
- // private String version;
+  // private String version;
 
   private String returnCode;
 
   private String returnCodeDescription;
 
- // private String authorizationNumber;
+  // private String authorizationNumber;
 
   private String msisdn;
 

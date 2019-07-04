@@ -41,7 +41,6 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 /**
- *
  * @author <a href="mailto:brainslog@gmail.com"> Alexandre Mendonca </a>
  * @author <a href="mailto:baranowb@gmail.com"> Bartosz Baranowski </a>
  */
@@ -70,12 +69,10 @@ public abstract class AbstractServer extends TBase implements ServerRoSessionLis
       creditControlSessionFactory.setStateListener(this);
       creditControlSessionFactory.setServerSessionListener(this);
       creditControlSessionFactory.setServerContextListener(this);
-    }
-    finally {
+    } finally {
       try {
         configStream.close();
-      }
-      catch (Exception e) {
+      } catch (Exception e) {
         e.printStackTrace();
       }
     }

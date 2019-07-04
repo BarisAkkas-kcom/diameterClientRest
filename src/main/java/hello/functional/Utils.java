@@ -31,7 +31,6 @@ import org.jdiameter.api.validation.AvpRepresentation;
 import org.jdiameter.api.validation.Dictionary;
 
 /**
- *
  * @author <a href="mailto:brainslog@gmail.com"> Alexandre Mendonca </a>
  * @author <a href="mailto:baranowb@gmail.com"> Bartosz Baranowski </a>
  */
@@ -43,8 +42,7 @@ public class Utils {
     log.info("Request AVPs:");
     try {
       printAvps(log, avpDictionary, message.getAvps());
-    }
-    catch (AvpDataException e) {
+    } catch (AvpDataException e) {
       throw new DiameterClientException(e);
     }
     log.info("\n");
@@ -57,10 +55,8 @@ public class Utils {
   /**
    * Prints the AVPs present in an AvpSet with a specified 'tab' level
    *
-   * @param avpSet
-   *          the AvpSet containing the AVPs to be printed
-   * @param level
-   *          an int representing the number of 'tabs' to make a pretty print
+   * @param avpSet the AvpSet containing the AVPs to be printed
+   * @param level  an int representing the number of 'tabs' to make a pretty print
    * @throws AvpDataException
    */
   private static void printAvpsAux(Logger log, Dictionary avpDictionary, AvpSet avpSet, int level) throws AvpDataException {
@@ -73,23 +69,18 @@ public class Utils {
         log.info(prefix + "<avp name=\"" + avpRep.getName() + "\" code=\"" + avp.getCode() + "\" vendor=\"" + avp.getVendorId() + "\">");
         printAvpsAux(log, avpDictionary, avp.getGrouped(), level + 1);
         log.info(prefix + "</avp>");
-      }
-      else if (avpRep != null) {
+      } else if (avpRep != null) {
         String value = "";
 
         if (avpRep.getType().equals("Integer32")) {
           value = String.valueOf(avp.getInteger32());
-        }
-        else if (avpRep.getType().equals("Integer64") || avpRep.getType().equals("Unsigned64")) {
+        } else if (avpRep.getType().equals("Integer64") || avpRep.getType().equals("Unsigned64")) {
           value = String.valueOf(avp.getInteger64());
-        }
-        else if (avpRep.getType().equals("Unsigned32")) {
+        } else if (avpRep.getType().equals("Unsigned32")) {
           value = String.valueOf(avp.getUnsigned32());
-        }
-        else if (avpRep.getType().equals("Float32")) {
+        } else if (avpRep.getType().equals("Float32")) {
           value = String.valueOf(avp.getFloat32());
-        }
-        else {
+        } else {
           value = avp.getUTF8String();
         }
 

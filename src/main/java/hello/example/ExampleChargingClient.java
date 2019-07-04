@@ -34,7 +34,6 @@ import java.util.Properties;
 import java.util.UUID;
 
 /**
- *
  * @author <a href="mailto:brainslog@gmail.com"> Alexandre Mendonca </a>
  * @author <a href="mailto:baranowb@gmail.com"> Bartosz Baranowski </a>
  */
@@ -47,22 +46,29 @@ public class ExampleChargingClient {
     //configLog4j();
   }
 
+  private MPayOcsClient client;
+  private String clientConfigLocation;
+
+  public ExampleChargingClient(String clientConfigLocation) throws Exception {
+    super();
+    log.debug("ExampleChargingClient using configuraton: " + clientConfigLocation);
+
+    this.clientConfigLocation = clientConfigLocation;
+  }
+
   private static void configLog4j() {
     InputStream inStreamLog4j = ExampleChargingClient.class.getClassLoader().getResourceAsStream("log4j.properties");
     Properties propertiesLog4j = new Properties();
     try {
       propertiesLog4j.load(inStreamLog4j);
       PropertyConfigurator.configure(propertiesLog4j);
-    }
-    catch (Exception e) {
+    } catch (Exception e) {
       e.printStackTrace();
-    }
-    finally {
+    } finally {
       if (inStreamLog4j != null) {
         try {
           inStreamLog4j.close();
-        }
-        catch (IOException e) {
+        } catch (IOException e) {
           e.printStackTrace();
         }
       }
@@ -96,27 +102,23 @@ public class ExampleChargingClient {
       toTest.tearDown();
       log.debug("System is Exiting");
       System.exit(0);
-    }
-    catch (Exception e) {
+    } catch (Exception e) {
       e.printStackTrace();
     }
   }
 
-  private MPayOcsClient client;
-  private String clientConfigLocation;
-
-  public ExampleChargingClient(String clientConfigLocation) throws Exception {
-    super();
-    log.debug("ExampleChargingClient using configuraton: " + clientConfigLocation);
-
-    this.clientConfigLocation = clientConfigLocation;
+  private static void waitForMessages() {
+    try {
+      Thread.sleep(10000);
+    } catch (InterruptedException e) {
+      e.printStackTrace();
+    }
   }
 
   public void setUp() throws Exception {
     try {
       this.client = MPayOcsClient.getInstance(clientConfigLocation);
-    }
-    catch (Throwable e) {
+    } catch (Throwable e) {
       e.printStackTrace();
     }
   }
@@ -125,8 +127,7 @@ public class ExampleChargingClient {
     if (this.client != null) {
       try {
         this.client.stop(DisconnectCause.REBOOTING);
-      }
-      catch (Exception e) {
+      } catch (Exception e) {
         e.printStackTrace();
       }
       this.client = null;
@@ -137,14 +138,5 @@ public class ExampleChargingClient {
     client.sendEvent(eventAuthRequest);
 
     return null;
-  }
-
-  private static void waitForMessages() {
-    try {
-      Thread.sleep(10000);
-    }
-    catch (InterruptedException e) {
-      e.printStackTrace();
-    }
   }
 }

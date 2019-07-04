@@ -25,7 +25,13 @@ import hello.client.DiameterClientException;
 import hello.functional.StateChange;
 import hello.functional.TBase;
 import hello.session.MPayRoSession;
-import org.jdiameter.api.*;
+import org.jdiameter.api.ApplicationId;
+import org.jdiameter.api.Avp;
+import org.jdiameter.api.AvpSet;
+import org.jdiameter.api.IllegalDiameterStateException;
+import org.jdiameter.api.InternalException;
+import org.jdiameter.api.Message;
+import org.jdiameter.api.Mode;
 import org.jdiameter.api.ro.ClientRoSession;
 import org.jdiameter.api.ro.ClientRoSessionListener;
 import org.jdiameter.api.ro.ServerRoSession;
@@ -43,7 +49,6 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 /**
- *
  * @author <a href="mailto:brainslog@gmail.com"> Alexandre Mendonca </a>
  * @author <a href="mailto:baranowb@gmail.com"> Bartosz Baranowski </a>
  */
@@ -57,7 +62,7 @@ public abstract class AbstractClient extends TBase implements ClientRoSessionLis
   protected static final int CC_REQUEST_TYPE_TERMINATE = 3;
   protected static final int CC_REQUEST_TYPE_EVENT = 4;
 
-//  protected final Map<String, ClientRoSession> clientRoSessions = new HashMap<String, ClientRoSession>();
+  //  protected final Map<String, ClientRoSession> clientRoSessions = new HashMap<String, ClientRoSession>();
   protected int ccRequestNumber = 0;
   protected List<StateChange<ClientRoSessionState>> stateChanges = new ArrayList<StateChange<ClientRoSessionState>>(); // state changes
 
@@ -73,15 +78,12 @@ public abstract class AbstractClient extends TBase implements ClientRoSessionLis
       creditControlSessionFactory.setClientSessionListener(this);
       creditControlSessionFactory.setClientContextListener(this);
 //      this.clientRoSession = this.sessionFactory.getNewAppSession(this.sessionFactory.getSessionId(), getApplicationId(), ClientRoSession.class, (Object) null);
-    }
-    catch (Exception e) {
+    } catch (Exception e) {
       throw new DiameterClientException(e);
-    }
-    finally {
+    } finally {
       try {
         configStream.close();
-      }
-      catch (Exception e) {
+      } catch (Exception e) {
         throw new DiameterClientException(e);
       }
     }
@@ -407,8 +409,7 @@ public abstract class AbstractClient extends TBase implements ClientRoSessionLis
   public ClientRoSession getSession() {
     try {
       return sessionFactory.getNewAppSession(sessionFactory.getSessionId(), getApplicationId(), ClientRoSession.class, (Object) null);
-    }
-    catch (InternalException e) {
+    } catch (InternalException e) {
       throw new DiameterClientException(e);
     }
   }
@@ -420,8 +421,7 @@ public abstract class AbstractClient extends TBase implements ClientRoSessionLis
   public MPayRoSession getMPAYSession() {
     try {
       return sessionFactory.getNewAppSession(sessionFactory.getSessionId(), getApplicationId(), MPayRoSession.class, (Object) null);
-    }
-    catch (InternalException e) {
+    } catch (InternalException e) {
       throw new DiameterClientException(e);
     }
   }
