@@ -116,6 +116,7 @@ public class DiameterRoClientFactory implements IDiameterRoClient, ClientRoSessi
         try {
             log.debug("initStack() - START ");
             stack = new StackImpl();
+            System.out.println("dictionaryFile : " + dictionaryFile);
             avpDictionary.parseDictionary(dictionaryFile);
             log.info("AVP Dictionary successfully parsed.");
             sessionFactory = (ISessionFactory) stack.init(new XMLConfiguration(new FileInputStream(new File(configFile))));
@@ -211,7 +212,9 @@ public class DiameterRoClientFactory implements IDiameterRoClient, ClientRoSessi
         ccrAvps.addAvp(Avp.CC_REQUEST_NUMBER, requestNumber);
         String subscriptionIdData = roCcr.getSubscriptionId().getSubscriptionIdData();
         subscriptionId.addAvp(Avp.SUBSCRIPTION_ID_DATA, subscriptionIdData, false);
-
+        AvpSet rsuAvp = ccrAvps.addGroupedAvp(Avp.REQUESTED_SERVICE_UNIT);
+        rsuAvp.addAvp(Avp.CC_TIME,roCcr.getRequestedServiceUnit().getCcServiceSpecificUnits());
+        ccrAvps.addAvp(Avp.SERVICE_CONTEXT_ID, roCcr.getServiceContextId(), false);
         //DO MORE TO MAP RoCCr Object values to RoCreditControlRequest Object
 
         log.debug("createCCR(ccRequestType,requestNumber, ClientRoSession, RoCcr) - END ");

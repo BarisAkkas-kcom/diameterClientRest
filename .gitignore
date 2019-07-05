@@ -9,6 +9,8 @@ target/
 .settings/
 .editorconfig
 
+.gradle/
+
 # Compiled source #
 ###################
 *.iml
