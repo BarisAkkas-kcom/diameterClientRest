@@ -1,5 +1,6 @@
 package com.kcom.diameter.client.impl;
 
+import com.kcom.diameter.client.IDiameterRoClient;
 import com.kcom.diameter.dictionary.AvpDictionary;
 import com.kcom.diameter.exception.DiameterClientException;
 import com.kcom.diameter.helpers.Utils;
@@ -43,11 +44,11 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-public class DiameterRoClientFactory implements NetworkReqListener,
-    EventListener<Request, Answer>{
+public class DiameterRoClientHandler implements NetworkReqListener,
+    EventListener<Request, Answer>, IDiameterRoClient {
 
     private static String dictionaryFile = "dictionary.xml";
-    private static final Map<String, DiameterRoClientFactory> instances = new HashMap<String, DiameterRoClientFactory>();
+    private static final Map<String, DiameterRoClientHandler> instances = new HashMap<String, DiameterRoClientHandler>();
     private final CountDownLatch countDownLatch = new CountDownLatch(1);
 
     public static String clientConfig = "client-jdiameter-config.xml";
@@ -65,12 +66,12 @@ public class DiameterRoClientFactory implements NetworkReqListener,
     private static String clientURI;
     private static String serverRealm;
 
-    protected static final Logger log = Logger.getLogger(DiameterRoClientFactory.class);
+    protected static final Logger log = Logger.getLogger(DiameterRoClientHandler.class);
 
-    public DiameterRoClientFactory(){
+    public DiameterRoClientHandler(){
     }
 
-    public DiameterRoClientFactory(String config, String dictionary){
+    public DiameterRoClientHandler(String config, String dictionary){
         clientConfig = config;
         dictionaryFile = dictionary;
     }
@@ -86,7 +87,7 @@ public class DiameterRoClientFactory implements NetworkReqListener,
     private synchronized StackImpl initStack() {
 
         try {
-            dictionary.parseDictionary(DiameterRoClientFactory.class.getClassLoader().getResourceAsStream(dictionaryFile));
+            dictionary.parseDictionary(DiameterRoClientHandler.class.getClassLoader().getResourceAsStream(dictionaryFile));
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -95,17 +96,10 @@ public class DiameterRoClientFactory implements NetworkReqListener,
         try {
             stack = new StackImpl();
             log.info("clientConfig : " + clientConfig);
-            InputStream configStream = DiameterRoClientFactory.class.getClassLoader().getResourceAsStream(clientConfig);
+            InputStream configStream = DiameterRoClientHandler.class.getClassLoader().getResourceAsStream(clientConfig);
             config = new XMLConfiguration(configStream);
             stack.init(config);
             sessionFactory = (ISessionFactory)stack.getSessionFactory();
-//      RoSessionFactoryImpl creditControlSessionFactory = new RoSessionFactoryImpl(sessionFactory);
-//      sessionFactory.registerAppFacory(ServerRoSession.class, creditControlSessionFactory);
-//      sessionFactory.registerAppFacory(ClientRoSession.class, creditControlSessionFactory);
-            //creditControlSessionFactory.setStateListener(this);
-            //creditControlSessionFactory.setClientSessionListener(this);
-            //creditControlSessionFactory.setClientContextListener(this);
-            //init(this.getClass().getClassLoader().getResourceAsStream(clientConfig), "CLIENT");
 
             Configuration config = stack.getConfiguration();
             log.debug("DIAMETER CONFIG :: " + config);
@@ -164,7 +158,7 @@ public class DiameterRoClientFactory implements NetworkReqListener,
     }
 
     private void configLog4j() {
-        InputStream inStreamLog4j = DiameterRoClientFactory.class.getClassLoader().getResourceAsStream("log4j.properties");
+        InputStream inStreamLog4j = DiameterRoClientHandler.class.getClassLoader().getResourceAsStream("log4j.properties");
         Properties propertiesLog4j = new Properties();
         try {
             propertiesLog4j.load(inStreamLog4j);
@@ -188,18 +182,14 @@ public class DiameterRoClientFactory implements NetworkReqListener,
             log.debug("Received: " + roCcr);
             log.debug("Getting Client To Session with app id : " + applicationID);
             stack = getStack();
-//      ClientRoSession clientRoSession = sessionFactory.getNewAppSession(sessionFactory.getSessionId(),
-//          applicationID,ClientRoSession.class, (Object) null);
             Session clientRoSession = sessionFactory.getNewSession();
             log.debug("clientRoSessionId: " + clientRoSession.getSessionId());
             Request eventRequest = createCCR(4, ccRequestNumber, clientRoSession, roCcr);
             ccRequestNumber++;
             Utils.printMessage(log, getStack().getDictionary(), eventRequest, true);
             inFlightTxns.put(clientRoSession.getSessionId(), roCcr);
-            //inFlightSessions.put(clientRoSession.getSessionId(), this.countDownLatch);
             log.debug("No of inflight requests after adding txin = " + roCcr.getSubscriptionId() + " session id = " + clientRoSession.getSessionId() +
                 "=" + inFlightTxns.size());
-            //clientRoSession.sendCreditControlRequest(eventRequest);
             clientRoSession.send(eventRequest,this,30000,TimeUnit.MILLISECONDS);
             //return this;
         } catch (Exception e) {
@@ -207,6 +197,7 @@ public class DiameterRoClientFactory implements NetworkReqListener,
         }
     }
 
+    @Override
     public RoCca sendEvent(RoCcr roCcr) {
         try {
             sendEventAsFuture(roCcr);

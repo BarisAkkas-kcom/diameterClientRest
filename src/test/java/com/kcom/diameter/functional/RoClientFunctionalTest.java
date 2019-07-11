@@ -1,6 +1,6 @@
 package com.kcom.diameter.functional;
 
-import com.kcom.diameter.client.impl.DiameterRoClientFactory;
+import com.kcom.diameter.client.impl.DiameterRoClientHandler;
 import com.kcom.diameter.ro.messages.RoCca;
 import com.kcom.diameter.ro.messages.RoCcr;
 import com.kcom.diameter.ro.messages.composites.ServiceSpecificUnit;
@@ -12,7 +12,7 @@ public class RoClientFunctionalTest {
 
     public static void main(String[] args) {
 
-        DiameterRoClientFactory instance = new DiameterRoClientFactory();
+        DiameterRoClientHandler instance = new DiameterRoClientHandler();
 
         RoCcr roCcr = createCCr();
         RoCca roCca = instance.sendEvent(roCcr);
