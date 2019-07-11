@@ -24,7 +24,6 @@ package hello.functional.ro;
 import hello.client.DiameterClientException;
 import hello.functional.StateChange;
 import hello.functional.TBase;
-import hello.session.MPayRoSession;
 import org.jdiameter.api.ApplicationId;
 import org.jdiameter.api.Avp;
 import org.jdiameter.api.AvpSet;
@@ -409,18 +408,6 @@ public abstract class AbstractClient extends TBase implements ClientRoSessionLis
   public ClientRoSession getSession() {
     try {
       return sessionFactory.getNewAppSession(sessionFactory.getSessionId(), getApplicationId(), ClientRoSession.class, (Object) null);
-    } catch (InternalException e) {
-      throw new DiameterClientException(e);
-    }
-  }
-
-  public MPayRoSession fetchMPAYSession(String sessionId) throws InternalException {
-    return stack.getSession(sessionId, MPayRoSession.class);
-  }
-
-  public MPayRoSession getMPAYSession() {
-    try {
-      return sessionFactory.getNewAppSession(sessionFactory.getSessionId(), getApplicationId(), MPayRoSession.class, (Object) null);
     } catch (InternalException e) {
       throw new DiameterClientException(e);
     }

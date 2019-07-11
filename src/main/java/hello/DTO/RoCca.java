@@ -1,6 +1,6 @@
 package hello.DTO;
 
-public class EventAuthorizationResponse {
+public class RoCca {
 
   private String txnId;
 
@@ -84,7 +84,7 @@ public class EventAuthorizationResponse {
 
   @Override
   public String toString() {
-    return "EventAuthorizationResponse [txnId=" + txnId + ", returnCode=" + returnCode + ", returnCodeDescription="
+    return "RoCca [txnId=" + txnId + ", returnCode=" + returnCode + ", returnCodeDescription="
         + returnCodeDescription + ", msisdn=" + msisdn + ", reservedUnits=" + reservedUnits + ", success="
         + success + "]";
   }

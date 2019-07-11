@@ -1,8 +1,8 @@
 package hello.controller;
 
-import hello.DTO.EventAuthorizationRequest;
-import hello.DTO.EventAuthorizationResponse;
-import hello.client.MPayOcsClient;
+import hello.DTO.RoCca;
+import hello.DTO.RoCcr;
+import hello.client.DiameterRoClientFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -20,18 +20,18 @@ public class DiameterController {
 
 
   @RequestMapping("/sendCCR")
-  public ResponseEntity<EventAuthorizationResponse> sendCCR(@RequestBody EventAuthorizationRequest eventAuthorizationRequest) {
+  public ResponseEntity<RoCca> sendCCR(@RequestBody RoCcr eventAuthorizationRequest) {
 
     logger.info(eventAuthorizationRequest.getMsisdn());
 
-    MPayOcsClient instance = MPayOcsClient.getInstance(clientConfig);
+    DiameterRoClientFactory instance = new DiameterRoClientFactory();
 
-    EventAuthorizationResponse eventAuthorizationResponse = instance.sendEventAuthAndBlock(eventAuthorizationRequest);
+    RoCca eventAuthorizationResponse = instance.sendEvent(eventAuthorizationRequest);
 
     logger.info("Returning msisdn : " + eventAuthorizationResponse.getMsisdn() + ", result code: " + eventAuthorizationResponse.getReturnCode() +
         ", txin : " + eventAuthorizationResponse.getTxnId() + " as a result of Request msisdn : " + eventAuthorizationRequest.getMsisdn()
         + ", txin" + eventAuthorizationRequest.getTransactionId());
 
-    return new ResponseEntity<EventAuthorizationResponse>(eventAuthorizationResponse, HttpStatus.OK);
+    return new ResponseEntity<RoCca>(eventAuthorizationResponse, HttpStatus.OK);
   }
 }

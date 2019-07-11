@@ -5,7 +5,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.util.Date;
 import java.util.concurrent.CountDownLatch;
 
-public class EventAuthorizationRequest {
+public class RoCcr {
 
   @JsonIgnore
   private final CountDownLatch countDownLatch = new CountDownLatch(1);
@@ -272,7 +272,7 @@ public class EventAuthorizationRequest {
 
   @Override
   public String toString() {
-    return "EventAuthorizationRequest [transactionId=" + transactionId + ", msisdn=" + msisdn + ", balanceNotificationRequired=" + balanceNotificationRequired
+    return "RoCcr [transactionId=" + transactionId + ", msisdn=" + msisdn + ", balanceNotificationRequired=" + balanceNotificationRequired
         + ", balanceNotificationMethod=" + balanceNotificationMethod + ", requestingEntity=" + requestingEntity + ", retailerName=" + retailerName
         + ", information=" + information + ", eventTime=" + eventTime + ", direction=" + direction + ", directionString=" + directionString + ", eventType="
         + eventType + ", eventSubType=" + eventSubType + ", expirationTime=" + expirationTime + ", origType=" + origType + ", origAddress=" + origAddress
