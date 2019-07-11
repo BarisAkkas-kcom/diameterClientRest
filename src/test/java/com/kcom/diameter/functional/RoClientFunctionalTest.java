@@ -11,17 +11,12 @@ import java.util.UUID;
 public class RoClientFunctionalTest {
 
     public static void main(String[] args) {
-        DiameterRoClientFactory instance = DiameterRoClientFactory.getInstance("C:\\Users\\akkasb\\Desktop\\baris-workspace\\jDiameter-Implementations" +
-            "\\DiameterClientRest\\src\\main\\resources\\client-config.xml","C:\\Users\\akkasb\\Desktop\\baris-workspace\\jDiameter" +
-            "-Implementations\\DiameterClientRest\\src\\main\\resources\\dictionary.xml");
-        try {
-            Thread.sleep(1000);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
+
+        DiameterRoClientFactory instance = new DiameterRoClientFactory();
+
         RoCcr roCcr = createCCr();
         RoCca roCca = instance.sendEvent(roCcr);
-        System.out.println(roCca.toString());
+        System.out.println("Result is : " + roCca.toString());
     }
 
     private static RoCcr createCCr(){
