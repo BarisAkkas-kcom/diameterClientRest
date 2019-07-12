@@ -2,7 +2,7 @@ package hello.controller;
 
 import hello.DTO.RoCca;
 import hello.DTO.RoCcr;
-import hello.client.DiameterRoClientFactory;
+import hello.client.DiameterRoClientHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -24,7 +24,7 @@ public class DiameterController {
 
     logger.info(eventAuthorizationRequest.getMsisdn());
 
-    DiameterRoClientFactory instance = new DiameterRoClientFactory();
+    DiameterRoClientHandler instance = new DiameterRoClientHandler();
 
     RoCca eventAuthorizationResponse = instance.sendEvent(eventAuthorizationRequest);
 

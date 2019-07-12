@@ -1,11 +1,11 @@
 package hello.client;
 
-import hello.DTO.RoCca;
-import hello.DTO.RoCcr;
+import com.kcom.diameter.ro.messages.RoCca;
+import com.kcom.diameter.ro.messages.RoCcr;
+import com.kcom.diameter.ro.messages.composites.ServiceSpecificUnit;
 import hello.dictionary.AvpDictionary;
 import hello.functional.Utils;
 import org.apache.log4j.Logger;
-import org.apache.log4j.PropertyConfigurator;
 import org.jdiameter.api.Answer;
 import org.jdiameter.api.ApplicationId;
 import org.jdiameter.api.Avp;
@@ -16,7 +16,6 @@ import org.jdiameter.api.EventListener;
 import org.jdiameter.api.IllegalDiameterStateException;
 import org.jdiameter.api.InternalException;
 import org.jdiameter.api.Mode;
-import org.jdiameter.api.NetworkReqListener;
 import org.jdiameter.api.Peer;
 import org.jdiameter.api.PeerState;
 import org.jdiameter.api.PeerTable;
@@ -29,45 +28,46 @@ import org.jdiameter.client.impl.StackImpl;
 import org.jdiameter.server.impl.helpers.Parameters;
 import org.jdiameter.server.impl.helpers.XMLConfiguration;
 
-import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
-public class DiameterRoClientFactory implements /*ClientRoSessionListener,*/ NetworkReqListener,
-    EventListener<Request, Answer>/*,Future<RoCca>*/ {
+public class DiameterRoClientHandler implements EventListener<Request, Answer> {
 
-  private static final String dictionaryFile = "dictionary.xml";
-  private static final Map<String, DiameterRoClientFactory> instances = new HashMap<String, DiameterRoClientFactory>();
+  private static String dictionaryFile = "dictionary.xml";
+  private static final Map<String, DiameterRoClientHandler> instances = new HashMap<String, DiameterRoClientHandler>();
   private final CountDownLatch countDownLatch = new CountDownLatch(1);
-  //final Phaser phaser = new Phaser(1);
-  static final String clientConfig = "client-jdiameter-config.xml";
+
+  public static String clientConfig = "client-jdiameter-config.xml";
   private static XMLConfiguration config;
   private RoCca result = null;
-  private static volatile boolean cancelled = false;
   private static AvpDictionary dictionary = AvpDictionary.INSTANCE;
   private static Map<String, RoCcr> inFlightTxns = new HashMap<String, RoCcr>();
-  //private static Map<String, CountDownLatch> inFlightSessions = new HashMap<String, CountDownLatch>();
   private static StackImpl stack;
   private static ISessionFactory sessionFactory;
   private static int ccRequestNumber;
 
-  private static ApplicationId applicationID = ApplicationId.createByAuthAppId(0, 4);
+  private static long vendorId = 10415;
+  private static int authAppId = 4;
+  private static ApplicationId applicationID = ApplicationId.createByAuthAppId(10415, 4);
   private static String realmName = "client.kcom.com";
-  //  private static ApplicationId applicationID = ApplicationId.createByAuthAppId(0, 4);
   private static String clientURI;
-  private static String serverRealm;
+  private static String serverRealm = "server.kcom.com";
 
-  protected static final Logger log = Logger.getLogger(DiameterRoClientFactory.class);
+  protected static final Logger log = Logger.getLogger(DiameterRoClientHandler.class);
 
-  public DiameterRoClientFactory(){
+  public DiameterRoClientHandler(){
+  }
+
+  public DiameterRoClientHandler(String config, String dictionary){
+    clientConfig = config;
+    dictionaryFile = dictionary;
   }
 
   protected synchronized StackImpl getStack() {
@@ -81,7 +81,7 @@ public class DiameterRoClientFactory implements /*ClientRoSessionListener,*/ Net
   private synchronized StackImpl initStack() {
 
     try {
-      dictionary.parseDictionary(DiameterRoClientFactory.class.getClassLoader().getResourceAsStream(dictionaryFile));
+      dictionary.parseDictionary(DiameterRoClientHandler.class.getClassLoader().getResourceAsStream(dictionaryFile));
     } catch (Exception e) {
       e.printStackTrace();
     }
@@ -90,30 +90,35 @@ public class DiameterRoClientFactory implements /*ClientRoSessionListener,*/ Net
     try {
       stack = new StackImpl();
       log.info("clientConfig : " + clientConfig);
-      InputStream configStream = DiameterRoClientFactory.class.getClassLoader().getResourceAsStream(clientConfig);
+      InputStream configStream = DiameterRoClientHandler.class.getClassLoader().getResourceAsStream(clientConfig);
       config = new XMLConfiguration(configStream);
       stack.init(config);
       sessionFactory = (ISessionFactory)stack.getSessionFactory();
-//      RoSessionFactoryImpl creditControlSessionFactory = new RoSessionFactoryImpl(sessionFactory);
-//      sessionFactory.registerAppFacory(ServerRoSession.class, creditControlSessionFactory);
-//      sessionFactory.registerAppFacory(ClientRoSession.class, creditControlSessionFactory);
-      //creditControlSessionFactory.setStateListener(this);
-      //creditControlSessionFactory.setClientSessionListener(this);
-      //creditControlSessionFactory.setClientContextListener(this);
-      //init(this.getClass().getClassLoader().getResourceAsStream(clientConfig), "CLIENT");
 
       Configuration config = stack.getConfiguration();
       log.debug("DIAMETER CONFIG :: " + config);
       clientURI = config.getStringValue(Parameters.OwnDiameterURI.ordinal(), "aaa://localhost:3868");
       log.debug("OwnDiameterURI=" + clientURI);
-      Configuration[] realmTable = config.getChildren(Parameters.RealmTable.ordinal());
-      for (Configuration realms : realmTable) {
-        Configuration[] realmEntries = realms.getChildren(Parameters.RealmEntry.ordinal());
-        for (Configuration realmEntry : realmEntries) {
-          serverRealm = realmEntry.getStringValue(Parameters.RealmName.ordinal(), "server.mobicents.org");
-          log.debug("RealmName=" + serverRealm);
-        }
-      }
+      realmName = config.getStringValue(Parameters.OwnRealm.ordinal(), "client.kcom.com");
+      log.debug("realmName=" + realmName);
+//            Configuration[] realmTable = config.getChildren(Parameters.RealmTable.ordinal());
+//            for (Configuration realms : realmTable) {
+//                Configuration[] realmEntries = realms.getChildren(Parameters.RealmEntry.ordinal());
+//                for (Configuration realmEntry : realmEntries) {
+//                    serverRealm = realmEntry.getStringValue(Parameters.RealmName.ordinal(), "server.mobicents.org");
+//                    log.debug("RealmName=" + serverRealm);
+//                }
+//            }
+
+//            Configuration[] appIds = config.getChildren(Parameters.ApplicationId.ordinal());
+//            log.debug(appIds.length);
+//            for (Configuration appId : appIds){
+//                Long vendorId = appId.getLongValue(Parameters.VendorId.ordinal(),100);
+//                log.debug("vendorId " + vendorId);
+//                break;
+//            }
+
+
 
       Thread.sleep(500L);
       stack.start(Mode.ANY_PEER, 30000, TimeUnit.SECONDS);
@@ -158,44 +163,39 @@ public class DiameterRoClientFactory implements /*ClientRoSessionListener,*/ Net
 
   }
 
-  private void configLog4j() {
-    InputStream inStreamLog4j = DiameterRoClientFactory.class.getClassLoader().getResourceAsStream("log4j.properties");
-    Properties propertiesLog4j = new Properties();
-    try {
-      propertiesLog4j.load(inStreamLog4j);
-      PropertyConfigurator.configure(propertiesLog4j);
-    } catch (Exception e) {
-      e.printStackTrace();
-    } finally {
-      if (inStreamLog4j != null) {
-        try {
-          inStreamLog4j.close();
-        } catch (IOException e) {
-          e.printStackTrace();
-        }
-      }
-    }
-    log.debug("log4j configured");
-  }
+//    private void configLog4j() {
+//        InputStream inStreamLog4j = DiameterRoClientHandler.class.getClassLoader().getResourceAsStream("log4j.properties");
+//        Properties propertiesLog4j = new Properties();
+//        try {
+//            propertiesLog4j.load(inStreamLog4j);
+//            PropertyConfigurator.configure(propertiesLog4j);
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        } finally {
+//            if (inStreamLog4j != null) {
+//                try {
+//                    inStreamLog4j.close();
+//                } catch (IOException e) {
+//                    e.printStackTrace();
+//                }
+//            }
+//        }
+//        log.debug("log4j configured");
+//    }
 
   private void sendEventAsFuture(RoCcr roCcr) {
     try {
       log.debug("Received: " + roCcr);
-      log.debug("Getting Client To Session with app id : " + applicationID);
       stack = getStack();
-//      ClientRoSession clientRoSession = sessionFactory.getNewAppSession(sessionFactory.getSessionId(),
-//          applicationID,ClientRoSession.class, (Object) null);
       Session clientRoSession = sessionFactory.getNewSession();
       log.debug("clientRoSessionId: " + clientRoSession.getSessionId());
-      Request eventRequest = createCCR(4, ccRequestNumber, clientRoSession, roCcr);
+      Request eventRequest = createCCR(ccRequestNumber, clientRoSession, roCcr);
       ccRequestNumber++;
       Utils.printMessage(log, getStack().getDictionary(), eventRequest, true);
       inFlightTxns.put(clientRoSession.getSessionId(), roCcr);
-      //inFlightSessions.put(clientRoSession.getSessionId(), this.countDownLatch);
-      log.debug("No of inflight requests after adding txin = " + roCcr.getTransactionId() + " session id = " + clientRoSession.getSessionId() +
+      log.debug("No of inflight requests after adding txin = " + roCcr.getSubscriptionId() + " session id = " + clientRoSession.getSessionId() +
           "=" + inFlightTxns.size());
-      //clientRoSession.sendCreditControlRequest(eventRequest);
-      clientRoSession.send(eventRequest,this,30000,TimeUnit.MILLISECONDS);
+      clientRoSession.send(eventRequest,this,10000,TimeUnit.MILLISECONDS);
       //return this;
     } catch (Exception e) {
       throw new DiameterClientException(e);
@@ -217,7 +217,7 @@ public class DiameterRoClientFactory implements /*ClientRoSessionListener,*/ Net
     }
   }
 
-  private Request createCCR(int ccRequestType, int requestNumber, Session ccaSession, RoCcr roCcr)
+  private Request createCCR(int requestNumber, Session ccaSession, RoCcr roCcr)
       throws Exception {
     //RoCreditControlRequest ccr = createCCR(ccRequestType, requestNumber, ccaSession);
 
@@ -282,11 +282,11 @@ public class DiameterRoClientFactory implements /*ClientRoSessionListener,*/ Net
     // identifiers via, for example, publication of an informational RFC is
     // RECOMMENDED in order to make Service-Context-Id globally available.
 
-    String serviceContextId = "32270@3gpp.org";
-//    String serviceContextId = getServiceContextId();
-//    if (serviceContextId == null) {
-//      serviceContextId = UUID.randomUUID().toString().replaceAll("-", "") + "@mss.mobicents.org";
-//    }
+
+    String serviceContextId = roCcr.getServiceContextId();
+    if (serviceContextId == null) {
+      serviceContextId = UUID.randomUUID().toString().replaceAll("-", "") + "@kcom.com";
+    }
     ccrAvps.addAvp(Avp.SERVICE_CONTEXT_ID, serviceContextId, false);
 
     // { CC-Request-Type }
@@ -323,7 +323,7 @@ public class DiameterRoClientFactory implements /*ClientRoSessionListener,*/ Net
     // is further detailed in the Requested-Action AVP. The Requested-
     // Action AVP MUST be included in the Credit-Control-Request message
     // when CC-Request-Type is set to EVENT_REQUEST.
-    ccrAvps.addAvp(Avp.CC_REQUEST_TYPE, ccRequestType);
+    ccrAvps.addAvp(Avp.CC_REQUEST_TYPE, roCcr.getCcRequestType());
 
     // { CC-Request-Number }
     // 8.2. CC-Request-Number AVP
@@ -379,7 +379,7 @@ public class DiameterRoClientFactory implements /*ClientRoSessionListener,*/ Net
     //
     // The CC-Time AVP (AVP Code 420) is of type Unsigned32 and indicates
     // the length of the requested, granted, or used time in seconds.
-    rsuAvp.addAvp(Avp.CC_TIME, 1);
+    rsuAvp.addAvp(Avp.CC_TIME, roCcr.getRequestedServiceUnit().getCcServiceSpecificUnits());
 
     // [ Requested-Action ]
     // *[ Used-Service-Unit ]
@@ -403,26 +403,8 @@ public class DiameterRoClientFactory implements /*ClientRoSessionListener,*/ Net
     // [ CC-Service-Specific-Units ]
     // *[ AVP ]
 
-    // FIXME: alex :) ?
-    // if(ccRequestNumber >= 1) {
-    // AvpSet usedServiceUnit = ccrAvps.addGroupedAvp(Avp.USED_SERVICE_UNIT);
-    // usedServiceUnit.addAvp(Avp.CC_TIME, this.partialCallDurationCounter);
-    // System.out.println("USED SERVICE UNITS ==============================>"
-    // + partialCallDurationCounter);
-    // }
-    // [ AoC-Request-Type ]
-    // [ Multiple-Services-Indicator ]
-    // *[ Multiple-Services-Credit-Control ]
-    // *[ Service-Parameter-Info ]
-    // [ CC-Correlation-Id ]
-    // [ User-Equipment-Info ]
-    // *[ Proxy-Info ]
-    // *[ Route-Record ]
-    // [ Service-Information ]
-    // *[ AVP ]
-
     for (ApplicationId appid : ccr.getApplicationIdAvps()) {
-      log.debug("AUTHAPPID : " + appid.getAuthAppId() + " ACCTAPPID" + appid.getAcctAppId() + " VENDORID" + appid.getVendorId());
+      log.debug("AUTHAPPID : " + appid.getAuthAppId() + " ACCTAPPID : " + appid.getAcctAppId() + " VENDORID : " + appid.getVendorId());
     }
 
     // *[ Subscription-Id ]
@@ -473,14 +455,14 @@ public class DiameterRoClientFactory implements /*ClientRoSessionListener,*/ Net
     //
     // END_USER_PRIVATE 4
     // The Identifier is a credit-control server private identifier.
-    subscriptionId.addAvp(Avp.SUBSCRIPTION_ID_TYPE, 0);
+    subscriptionId.addAvp(Avp.SUBSCRIPTION_ID_TYPE, roCcr.getSubscriptionId().getSubscriptionIdType());
 
     // 8.48. Subscription-Id-Data AVP
     //
     // The Subscription-Id-Data AVP (AVP Code 444) is used to identify the
     // end user and is of type UTF8String. The Subscription-Id-Type AVP
     // defines which type of identifier is used.
-    String subscriptionIdData = roCcr.getMsisdn();
+    String subscriptionIdData = roCcr.getSubscriptionId().getSubscriptionIdData();
     subscriptionId.addAvp(Avp.SUBSCRIPTION_ID_DATA, subscriptionIdData, false);
 
     return ccr;
@@ -490,22 +472,20 @@ public class DiameterRoClientFactory implements /*ClientRoSessionListener,*/ Net
     RoCca roCca = new RoCca();
     //roCca.setMsisdn(roCcr.getMsisdn());
     try {
-      final long resultCode = answer.getResultCode().getUnsigned32();
-      roCca.setReturnCode(String.valueOf(resultCode));
-      roCca.setSuccess(resultCode == 2001);
-      roCca.setTxnId(roCcr.getTransactionId());
+      int resultCode = answer.getResultCode().getInteger32();
+      roCca.setResultCode(resultCode);
+      roCca.setCcRequestType(roCcr.getCcRequestType());
+      //roCca.setSessionId(roCcr.getSubscriptionId().getSubscriptionIdData());
       if (resultCode == 2001) {
         AvpSet avps = answer.getAvps();
         AvpSet grantedServiceUnit = avps.getAvps(Avp.GRANTED_SERVICE_UNIT);
         log.debug("Granted-Service-Unit(431)=" + grantedServiceUnit);
         Utils.printAvps(log, stack.getDictionary(), grantedServiceUnit);
-        //AvpSet ccTimeSet = avps.getAvp(Avp.GRANTED_SERVICE_UNIT).getGrouped().getAvps(Avp.CC_TIME);
-        //log.debug("CC-Time(420)=" + ccTime);
-        //long serviceSpecificUnits = ccTime.getUnsigned64();
-        long serviceSpecificUnits = avps.getAvp(Avp.GRANTED_SERVICE_UNIT).getGrouped().getAvp(Avp.CC_TIME).getInteger32();
-        log.debug("serviceSpecificUnits=" + serviceSpecificUnits);
-        String serviceSpecificUnitsString = String.valueOf(serviceSpecificUnits);
-        roCca.setReservedUnits(serviceSpecificUnitsString);
+        int grantedServiceUnits = avps.getAvp(Avp.GRANTED_SERVICE_UNIT).getGrouped().getAvp(Avp.CC_TIME).getInteger32();
+        log.debug("grantedServiceUnits=" + grantedServiceUnits);
+        ServiceSpecificUnit serviceSpecificUnits = new ServiceSpecificUnit();
+        serviceSpecificUnits.setCcServiceSpecificUnits(grantedServiceUnits);
+        roCca.setGrantedServiceUnit(serviceSpecificUnits);
       }
     } catch (AvpDataException | IllegalDiameterStateException e) {
       throw new DiameterClientException(e);
@@ -547,46 +527,11 @@ public class DiameterRoClientFactory implements /*ClientRoSessionListener,*/ Net
     }
   }
 
-  public boolean cancel(boolean mayInterruptIfRunning) {
-    if (isDone()) {
-      return false;
-    } else {
-      // countDownLatch.countDown();
-      //phaser.arriveAndDeregister();
-      cancelled = true;
-      return !isDone();
-    }
-  }
-
-  public boolean isCancelled() {
-    return cancelled;
-  }
-
-  public boolean isDone() {
-    //return countDownLatch.getCount() == 0;
-    //return phaser.isTerminated();
-    return false;
-  }
-
   public RoCca get() throws InterruptedException, ExecutionException {
     //Thread.sleep(200);
     this.countDownLatch.await();
-    // phaser.arriveAndAwaitAdvance();
-    log.debug("Baris returning result : " + result);
+    log.debug("Latch released, returning result : " + result);
     return this.result;
-  }
-
-  public RoCca get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
-    this.countDownLatch.await();
-    //phaser.arriveAndAwaitAdvance();
-    //log.debug("Baris returning result : " + result);
-    return this.result;
-  }
-
-  @Override
-  public Answer processRequest(Request request) {
-    log.info("Answer processRequest");
-    return null;
   }
 
   @Override
@@ -600,36 +545,17 @@ public class DiameterRoClientFactory implements /*ClientRoSessionListener,*/ Net
     }
     String sessionId = "";
 
-    // synchronized (this) {
     try {
       sessionId = answer.getSessionId();
-      log.debug("SESSIONID : " + sessionId);
-      log.debug(inFlightTxns.size());
-      for (String key : inFlightTxns.keySet()){
-        log.debug("key : " + key);
-      }
       RoCcr roCcr = inFlightTxns.get(sessionId);
       if (roCcr != null) {
         // Build an EventAuth Response
         RoCca roCca = getEventAuthorizationResponse(roCcr, answer);
         log.debug("About to send: " + roCca);
         this.result = roCca;
-        //inFlightSessions.get(sessionId).countDown();
-        //countDownLatch = roCcr.getCountDownLatch();
-        Thread.sleep(20);
         this.countDownLatch.countDown();
-
       }
-
-    }
-       /*catch (InterruptedException e) {
-        e.printStackTrace();
-      }*/ catch (InterruptedException e) {
-      e.printStackTrace();
     } finally {
-      // Remove the in-flight txn
-
-      //phaser.arriveAndDeregister();
       inFlightTxns.remove(sessionId);
       log.debug("No of inflight requests after removing " + sessionId + "=" + inFlightTxns.size());
       // Close the session
@@ -641,7 +567,6 @@ public class DiameterRoClientFactory implements /*ClientRoSessionListener,*/ Net
       }
       clientRoSession.release();
     }
-    // }
   }
 
   @Override
