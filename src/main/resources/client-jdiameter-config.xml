@@ -7,7 +7,7 @@
         <IPAddresses>
             <IPAddress value="127.0.0.1"/>
         </IPAddresses>
-        <Realm value="server.kcom.com"/>
+        <Realm value="client.kcom.com"/>
         <VendorID value="10415"/>
         <ProductName value="Ro Charging Client"/>
         <FirmwareRevision value="1"/>

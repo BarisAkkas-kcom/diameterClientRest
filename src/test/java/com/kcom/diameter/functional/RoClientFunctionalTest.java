@@ -21,14 +21,20 @@ public class RoClientFunctionalTest {
 
     private static RoCcr createCCr(){
         RoCcr roCcr = new RoCcr();
+
         SubscriptionId subsc = new SubscriptionId();
         subsc.setSubscriptionIdData("447700700777");
+        subsc.setSubscriptionIdType(0);
         roCcr.setSubscriptionId(subsc);
+
         ServiceSpecificUnit ssu = new ServiceSpecificUnit();
         ssu.setCcServiceSpecificUnits(1);
         roCcr.setRequestedServiceUnit(ssu);
-        String serviceContextId = UUID.randomUUID().toString().replaceAll("-", "") + "@mss.mobicents.org";
+
+        String serviceContextId = UUID.randomUUID().toString().replaceAll("-", "") + "@kcom.com";
         roCcr.setServiceContextId(serviceContextId);
+
+        roCcr.setCcRequestType(4);
         return roCcr;
     }
 }
