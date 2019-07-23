@@ -7,7 +7,7 @@
         <IPAddresses>
             <IPAddress value="127.0.0.1"/>
         </IPAddresses>
-        <Realm value="server.kcom.com"/>
+        <Realm value="client.kcom.com"/>
         <VendorID value="10415"/>
         <ProductName value="Ro Charging Client"/>
         <FirmwareRevision value="1"/>
@@ -77,6 +77,22 @@
             </Realm>
             <!-- Ro -->
             <Realm name="client.kcom.com" peers="127.0.0.1" local_action="LOCAL" dynamic="false" exp_time="1">
+                <ApplicationID>
+                    <VendorId value="10415"/>
+                    <AuthApplId value="4"/>
+                    <AcctApplId value="0"/>
+                </ApplicationID>
+            </Realm>
+            <!-- CCA -->
+            <Realm name="client2.kcom.com" peers="127.0.0.1" local_action="LOCAL" dynamic="false" exp_time="1">
+                <ApplicationID>
+                    <VendorId value="0"/>
+                    <AuthApplId value="4"/>
+                    <AcctApplId value="0"/>
+                </ApplicationID>
+            </Realm>
+            <!-- Ro -->
+            <Realm name="client2.kcom.com" peers="127.0.0.1" local_action="LOCAL" dynamic="false" exp_time="1">
                 <ApplicationID>
                     <VendorId value="10415"/>
                     <AuthApplId value="4"/>
